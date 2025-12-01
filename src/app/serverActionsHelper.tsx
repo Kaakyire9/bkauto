@@ -1,4 +1,4 @@
-import { getSupabaseServer } from '@/lib/supabaseServer'
+import { getSupabaseServer } from '../lib/supabaseServer'
 
 export function createServerActionClient(opts: { cookies: any }) {
   // return a server-side supabase client using the service role key
