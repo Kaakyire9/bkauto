@@ -33,6 +33,10 @@ export default function Hero() {
     const tryPlay = async () => {
       const v = videoRef.current;
       if (!v || !mounted) return;
+      // ensure iOS inline playback attribute is present
+      try {
+        v.setAttribute('webkit-playsinline', 'true');
+      } catch {}
       try {
         v.muted = true;
         await v.play();
@@ -83,13 +87,16 @@ export default function Hero() {
         <video
           ref={videoRef}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover"
-          src="/videos/hero-video.mp4"
+          preload="auto"
           autoPlay
           loop
           muted
           playsInline
           aria-hidden="true"
-        />
+        >
+          <source src="/videos/hero-video.webm" type="video/webm" />
+          <source src="/videos/hero-video.mp4" type="video/mp4" />
+        </video>
       )}
 
       {/* Dark Overlay */}
