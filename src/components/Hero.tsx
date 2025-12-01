@@ -8,7 +8,6 @@ import GhostButton from "./ui/GhostButton";
 
 export default function Hero() {
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -24,21 +23,52 @@ export default function Hero() {
     };
   }, []);
 
-  // Try to programmatically play the video (some browsers block autoplay unless muted and programmatic play is used)
+  // Best-effort autoplay: try programmatic play immediately and retry on visibility/user interaction.
   useEffect(() => {
     if (reducedMotion) return;
-    const v = videoRef.current;
-    if (!v) return;
-    // ensure muted and try to play
-    v.muted = true;
-    const playPromise = v.play();
-    if (playPromise && typeof playPromise.then === 'function') {
-      playPromise.then(() => {
-        setAutoplayBlocked(false);
-      }).catch(() => {
-        setAutoplayBlocked(true);
-      });
-    }
+    let attempts = 0;
+    const maxAttempts = 8;
+    let mounted = true;
+
+    const tryPlay = async () => {
+      const v = videoRef.current;
+      if (!v || !mounted) return;
+      try {
+        v.muted = true;
+        await v.play();
+        // played successfully
+      } catch (err) {
+        attempts += 1;
+        if (attempts < maxAttempts) {
+          // exponential backoff retry
+          const delay = 200 * Math.pow(2, attempts);
+          setTimeout(tryPlay, delay);
+        }
+      }
+    };
+
+    // initial attempt
+    tryPlay();
+
+    // retry when page becomes visible (some browsers allow play after visibilitychange)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') tryPlay();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // also retry on first user interaction (click/touch/keydown)
+    const onUserGesture = () => tryPlay();
+    window.addEventListener('pointerdown', onUserGesture, { once: true });
+    window.addEventListener('touchstart', onUserGesture, { once: true });
+    window.addEventListener('keydown', onUserGesture, { once: true });
+
+    return () => {
+      mounted = false;
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pointerdown', onUserGesture as any);
+      window.removeEventListener('touchstart', onUserGesture as any);
+      window.removeEventListener('keydown', onUserGesture as any);
+    };
   }, [reducedMotion]);
 
   return (
@@ -50,45 +80,16 @@ export default function Hero() {
           <Image src="/images/hero-poster.jpg" alt="Hero poster" fill className="object-cover" priority />
         </div>
       ) : (
-        <>
-          <video
-            ref={videoRef}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover"
-            src="/videos/hero-video.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            aria-hidden="true"
-          />
-
-          {autoplayBlocked && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center">
-              <button
-                onClick={async () => {
-                  const v = videoRef.current;
-                  if (!v) return;
-                  try {
-                    v.muted = true;
-                    await v.play();
-                    setAutoplayBlocked(false);
-                  } catch (err) {
-                    // still blocked — keep the overlay
-                  }
-                }}
-                className="flex items-center gap-3 bg-black/60 text-white px-5 py-3 rounded-full backdrop-blur-sm shadow-lg hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-gold"
-                aria-label="Play background video"
-              >
-                <span className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full transition-transform transform hover:scale-110">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-gold">
-                    <path d="M4.5 3.5v17l15-8.5-15-8.5z" />
-                  </svg>
-                </span>
-                <span className="font-semibold">Play</span>
-              </button>
-            </div>
-          )}
-        </>
+        <video
+          ref={videoRef}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover"
+          src="/videos/hero-video.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          aria-hidden="true"
+        />
       )}
 
       {/* Dark Overlay */}
