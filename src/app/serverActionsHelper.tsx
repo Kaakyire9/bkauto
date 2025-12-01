@@ -1,13 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseServer } from '@/lib/supabaseServer'
 
 export function createServerActionClient(opts: { cookies: any }) {
-  // This helper uses the service role key on the server — keep it secret in env
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) {
+  // return a server-side supabase client using the service role key
+  const supabase = getSupabaseServer()
+  if (!supabase) {
     throw new Error('Missing Supabase env vars for server client')
   }
-  return createClient(url, key, {
-    auth: { persistSession: false }
-  })
+  // supabase-js client already created with service role key in getSupabaseServer
+  return supabase
 }

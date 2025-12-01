@@ -3,16 +3,25 @@ import { cookies } from 'next/headers'
 import Hero from '../components/Hero'
 
 export default async function Page() {
-  // Example server action: will use serverActionsHelper to interact with Supabase
-  const supa = createServerActionClient({ cookies })
+  // Try to create server client; if env vars are missing (e.g. during build/prerender)
+  // fall back and skip server calls so the build doesn't fail.
+  let supa: any = null
+  try {
+    supa = createServerActionClient({ cookies })
+  } catch (err) {
+    supa = null
+  }
 
   // Example read: fetch from a demo table 'notes' if it exists
-  let notes = []
-  try {
-    const { data } = await supa.from('notes').select('*').limit(5)
-    notes = data ?? []
-  } catch (e) {
-    // ignore if table doesn't exist
+  let notes: any[] = []
+  if (supa) {
+    try {
+      const { data } = await supa.from('notes').select('*').limit(5)
+      notes = data ?? []
+    } catch (e) {
+      // ignore if table doesn't exist or query fails
+      notes = []
+    }
   }
 
   return (
@@ -39,8 +48,12 @@ export default async function Page() {
             'use server'
             const title = formData.get('title')?.toString() ?? ''
             if (!title) return
-            const supa = createServerActionClient({ cookies })
-            await supa.from('notes').insert({ title })
+            try {
+              const supaAction = createServerActionClient({ cookies })
+              await supaAction.from('notes').insert({ title })
+            } catch (err) {
+              // fail silently if Supabase not configured in this environment
+            }
           }} className="flex gap-2">
             <input name="title" placeholder="Note title" className="border px-3 py-2 rounded flex-1" />
             <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Create</button>
