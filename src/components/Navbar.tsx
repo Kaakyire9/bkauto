@@ -8,9 +8,12 @@ import PrimaryButton from './ui/PrimaryButton'
 import GhostButton from './ui/GhostButton'
 import NotificationsBell from './NotificationsBell'
 import { motion, AnimatePresence } from 'framer-motion'
+import { createPortal } from 'react-dom'
+import FocusTrap from 'focus-trap-react'
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
+  const [announce, setAnnounce] = useState('')
   const [user, setUser] = useState<any>(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const [authLoaded, setAuthLoaded] = useState(false)
@@ -20,8 +23,10 @@ export default function Navbar() {
   const pathname = usePathname()
   const headerRef = useRef<HTMLElement | null>(null)
   const ringRefDesktop = useRef<HTMLDivElement | null>(null)
-  const ringRefMobile = useRef<HTMLDivElement | null>(null)
-  const carRefMobile = useRef<HTMLDivElement | null>(null)
+  const ringRefMobileHeader = useRef<HTMLDivElement | null>(null)
+  const carRefMobileHeader = useRef<HTMLDivElement | null>(null)
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null)
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -57,7 +62,7 @@ export default function Navbar() {
       if (!mounted) return
       const rot = ((now - start) * 0.03) % 360
       if (ringRefDesktop.current) ringRefDesktop.current.style.transform = `rotate(${ -rot * 0.5 }deg)`
-      if (ringRefMobile.current) ringRefMobile.current.style.transform = `rotate(${ -rot * 0.5 }deg)`
+      if (ringRefMobileHeader.current) ringRefMobileHeader.current.style.transform = `rotate(${ -rot * 0.5 }deg)`
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
@@ -120,6 +125,25 @@ export default function Navbar() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+  // Accessibility & UX: scroll-lock and ARIA announcements; focus trap handled by focus-trap-react
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    if (open) {
+      const prevOverflow = document.body.style.overflow || ''
+      document.body.style.overflow = 'hidden'
+      setAnnounce('Menu opened')
+      return () => {
+        document.body.style.overflow = prevOverflow
+        setAnnounce('Menu closed')
+      }
+    } else {
+      // ensure the announcement clears after a short delay
+      setAnnounce('Menu closed')
+      const t = setTimeout(() => setAnnounce(''), 800)
+      return () => clearTimeout(t)
+    }
+  }, [open])
 
   return (
     <AnimatePresence>
@@ -132,8 +156,9 @@ export default function Navbar() {
         }}
         exit={{ y: -20, opacity: 0 }}
         transition={{ duration: 0.35 }}
-        className="lg:fixed lg:left-4 lg:right-4 lg:top-4 lg:z-40 rounded-2xl border border-white/10 bg-dark/80 backdrop-blur-xl shadow-2xl transition-all"
+        className="lg:fixed lg:left-4 lg:right-4 lg:top-4 lg:z-[9998] rounded-2xl border border-white/10 bg-dark/80 backdrop-blur-xl shadow-2xl transition-all"
       >
+        <div aria-live="polite" role="status" className="sr-only">{announce}</div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
             className="flex justify-between items-center relative"
@@ -295,25 +320,67 @@ export default function Navbar() {
               </div>
 
               {/* Mobile: Logo + Menu - Premium Layout */}
-              <div className="flex lg:hidden items-center justify-between w-full">
+              <div className="flex lg:hidden items-center justify-between w-full relative">
                 <Link href="/" className="flex items-center gap-3">
-                    <div className="w-12 h-12 relative">
-                      <Image
-                        src="/images/bk-logo.png"
-                        alt="BK Auto Trading"
-                        fill
-                        className="object-contain"
-                        sizes="48px"
-                      />
-                    </div>
-                    <span className="font-semibold text-lg md:text-xl text-white">BK Auto Trading</span>
+                  <div className="w-12 h-12 relative">
+                    <Image
+                      src="/images/bk-logo.png"
+                      alt="BK Auto Trading"
+                      fill
+                      className="object-contain"
+                      sizes="48px"
+                    />
+                  </div>
+                  <span className="font-semibold text-lg md:text-xl text-white">BK Auto Trading</span>
                 </Link>
+
+                
+                  {/* Mobile inline small video-in-ring (between logo and menu) */}
+                  <div className="mx-3 flex items-center pointer-events-none">
+                    <div className="w-9 h-9 relative flex items-center justify-center">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 blur-2xl rounded-full" />
+                      <div ref={carRefMobileHeader} className="relative z-10 w-[70%] h-[70%] flex items-center justify-center pointer-events-none" aria-hidden="true">
+                        <video
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          className="w-full h-full object-contain pointer-events-none"
+                          src="/videos/hero-video.mp4"
+                        />
+                      </div>
+                      <div ref={ringRefMobileHeader} className="absolute inset-[-4px] rounded-full pointer-events-none" aria-hidden="true">
+                        <svg className="absolute inset-0 w-full h-full" style={{ transform: 'rotate(0deg)' }}>
+                          <circle
+                            cx="50%"
+                            cy="50%"
+                            r="48%"
+                            fill="none"
+                            stroke="url(#gradient-mobile-header)"
+                            strokeWidth="2"
+                            strokeDasharray="6 6"
+                            strokeLinecap="round"
+                            style={{ filter: 'drop-shadow(0 0 6px rgba(168, 85, 247, 0.7))' }}
+                          />
+                          <defs>
+                            <linearGradient id="gradient-mobile-header" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#60A5FA" />
+                              <stop offset="33%" stopColor="#A78BFA" />
+                              <stop offset="66%" stopColor="#EC4899" />
+                              <stop offset="100%" stopColor="#F97316" />
+                            </linearGradient>
+                          </defs>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
 
                 <button
                   className="inline-flex items-center justify-center p-2.5 rounded-xl text-white hover:bg-white/10 transition-all border border-white/10"
                   aria-controls="mobile-menu"
                   aria-expanded={open}
                   onClick={() => setOpen(!open)}
+                  ref={menuButtonRef}
                 >
                   <span className="sr-only">Open main menu</span>
                   <motion.div
@@ -336,75 +403,28 @@ export default function Navbar() {
           </motion.div>
         </div>
 
-        {/* Premium Mobile Menu */}
-        <AnimatePresence>
-          {open && (
+        {/* Premium Mobile Menu (rendered into document.body to avoid stacking-context issues) */}
+        {typeof document !== 'undefined' && createPortal(
+          <div>
+          <FocusTrap active={open} focusTrapOptions={{ onDeactivate: () => setOpen(false), clickOutsideDeactivates: true, returnFocusOnDeactivate: true }}>
+          <AnimatePresence>
+            {open && (
             <motion.div
               key="mobile-drawer"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              initial={{ y: -8, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -8, opacity: 0 }}
+              transition={{ duration: 0.28, ease: "easeInOut" }}
               id="mobile-menu"
               role="menu"
               aria-hidden={!open}
-              className="lg:hidden overflow-hidden bg-gradient-to-b from-dark/80 to-dark/60 backdrop-blur-2xl border-t border-white/10"
+              className="lg:hidden fixed left-0 right-0 z-[9999] overflow-auto bg-black/15 backdrop-blur-md border-t border-white/10"
+              style={{ top: headerRef.current ? `${headerRef.current.offsetHeight}px` : undefined }}
+              ref={(el) => { mobileMenuRef.current = el as HTMLDivElement | null }}
             >
               <div className="px-6 pt-6 pb-8 space-y-1">
                 
-                {/* Premium Rotating Car Showcase */}
-                <motion.div 
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.1, duration: 0.4 }}
-                  className="flex flex-col items-center py-8 mb-4"
-                >
-                  <div className="relative">
-                    {/* Glow effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 blur-3xl rounded-full" />
-                    
-                    <div className="w-32 h-32 relative flex items-center justify-center">
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 blur-3xl rounded-full" />
-
-                      <div ref={carRefMobile} className="relative z-10 w-[85%] h-[85%] flex items-center justify-center">
-                        <video
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          className="w-full h-full object-contain"
-                          src="/videos/hero-video.mp4"
-                        />
-                      </div>
-
-                      <div ref={ringRefMobile} className="absolute inset-[-6px] rounded-full pointer-events-none">
-                        <svg className="absolute inset-0 w-full h-full" style={{ transform: 'rotate(0deg)' }}>
-                          <circle
-                            cx="50%"
-                            cy="50%"
-                            r="48%"
-                            fill="none"
-                            stroke="url(#gradient-mobile)"
-                            strokeWidth="2"
-                            strokeDasharray="8 8"
-                            strokeLinecap="round"
-                            style={{ filter: 'drop-shadow(0 0 8px rgba(168, 85, 247, 0.8))' }}
-                          />
-                          <defs>
-                            <linearGradient id="gradient-mobile" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#60A5FA" />
-                              <stop offset="33%" stopColor="#A78BFA" />
-                              <stop offset="66%" stopColor="#EC4899" />
-                              <stop offset="100%" stopColor="#F97316" />
-                            </linearGradient>
-                          </defs>
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Premium Collection badge removed per request */}
-                </motion.div>
+                {/* Mobile dropdown car/video removed to avoid duplication */}
 
                 {/* User Info (if logged in) */}
                 {authLoaded && user && (
@@ -470,7 +490,6 @@ export default function Navbar() {
                       <option>🌍 Global</option>
                       <option>🇺🇸 United States</option>
                       <option>🇪🇺 Europe</option>
-                      <option>🇨🇦 Canada</option>
                     </select>
                   </div>
 
@@ -526,8 +545,12 @@ export default function Navbar() {
                 </motion.div>
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
+          </FocusTrap>
+          </div>,
+          document.body
+        )}
       </motion.header>
     </AnimatePresence>
   )

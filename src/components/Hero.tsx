@@ -86,7 +86,7 @@ export default function Hero() {
       ) : (
         <video
           ref={videoRef}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover z-0"
           preload="auto"
           autoPlay
           loop
@@ -100,10 +100,10 @@ export default function Hero() {
       )}
 
       {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 bg-black/40 z-10" />
 
       {/* Hero Content */}
-      <div className="relative w-full h-full flex flex-col justify-center px-6 md:px-16 lg:px-24 xl:px-32 text-white safe-area-x transition-opacity duration-500">
+      <div className="relative w-full h-full flex flex-col justify-center px-6 md:px-16 lg:px-24 xl:px-32 text-white safe-area-x transition-opacity duration-500 z-20">
         <div className="max-w-3xl">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-4">
             Find your next car — we source, you decide.
