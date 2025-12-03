@@ -27,6 +27,7 @@ export default function Navbar() {
   const carRefMobileHeader = useRef<HTMLDivElement | null>(null)
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
+  const mobileVideoRef = useRef<HTMLVideoElement | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -143,6 +144,39 @@ export default function Navbar() {
       const t = setTimeout(() => setAnnounce(''), 800)
       return () => clearTimeout(t)
     }
+  }, [open])
+
+  // Attempt to ensure the small mobile header video can play on iOS/strict autoplay policies.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const v = mobileVideoRef.current
+    if (!v) return
+
+    try {
+      // iOS inline attribute
+      v.setAttribute('webkit-playsinline', 'true')
+      v.playsInline = true as any
+      v.muted = true
+      const p = v.play()
+      if (p && typeof p.catch === 'function') p.catch(() => {})
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      // nothing to cleanup
+    }
+  }, [])
+
+  // Try to play video when the menu is opened (user gesture happened), helps iOS allow playback
+  useEffect(() => {
+    if (!open) return
+    const v = mobileVideoRef.current
+    if (!v) return
+    try {
+      const p = v.play()
+      if (p && typeof p.catch === 'function') p.catch(() => {})
+    } catch (e) {}
   }, [open])
 
   return (
@@ -341,6 +375,7 @@ export default function Navbar() {
                       <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 blur-2xl rounded-full" />
                       <div ref={carRefMobileHeader} className="relative z-10 w-[70%] h-[70%] flex items-center justify-center pointer-events-none" aria-hidden="true">
                         <video
+                          ref={mobileVideoRef}
                           autoPlay
                           loop
                           muted
