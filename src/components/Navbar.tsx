@@ -126,24 +126,56 @@ export default function Navbar() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  // Accessibility & UX: scroll-lock and ARIA announcements; focus trap handled by focus-trap-react
+  // Accessibility & UX: robust scroll-lock (preserve scroll position) and ARIA announcements.
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    if (open) {
-      const prevOverflow = document.body.style.overflow || ''
-      document.body.style.overflow = 'hidden'
-      setAnnounce('Menu opened')
-      return () => {
-        document.body.style.overflow = prevOverflow
-        setAnnounce('Menu closed')
-      }
-    } else {
-      // ensure the announcement clears after a short delay
+    if (!open) {
+      // ensure the announcement clears after a short delay when closing
       setAnnounce('Menu closed')
       const t = setTimeout(() => setAnnounce(''), 800)
       return () => clearTimeout(t)
     }
+
+    // When opening, lock scroll by fixing the body and preserving scroll position (works better on mobile/iOS)
+    const prevOverflow = document.body.style.overflow || ''
+    const prevPosition = document.body.style.position || ''
+    const prevTop = document.body.style.top || ''
+    const prevWidth = document.body.style.width || ''
+    const scrollY = window.scrollY || 0
+
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
+    // keep overflow as-is (position:fixed prevents scrolling)
+
+    setAnnounce('Menu opened')
+
+    return () => {
+      // restore previous styles and restore scroll position
+      document.body.style.position = prevPosition
+      document.body.style.top = prevTop
+      document.body.style.width = prevWidth
+      document.body.style.overflow = prevOverflow
+      window.scrollTo(0, scrollY)
+      setAnnounce('Menu closed')
+    }
+  }, [open])
+
+  // Close-on-outside-click: listen for mousedown and close the menu if the click is outside the menu and the menu button.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !open) return
+
+    function onDocMouseDown(e: MouseEvent) {
+      const target = e.target as Node | null
+      if (!target) return
+      if (mobileMenuRef.current && mobileMenuRef.current.contains(target)) return
+      if (menuButtonRef.current && menuButtonRef.current.contains(target)) return
+      setOpen(false)
+    }
+
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
   }, [open])
 
   // Attempt to ensure the small mobile header video can play on iOS/strict autoplay policies.
@@ -247,7 +279,7 @@ export default function Navbar() {
                       muted 
                       playsInline 
                       className="w-full h-full object-contain"
-                      src="/videos/hero-video.mp4"
+                      src="/videos/car-rotate.mp4"
                     />
                   </div>
 
@@ -381,7 +413,7 @@ export default function Navbar() {
                           muted
                           playsInline
                           className="w-full h-full object-contain pointer-events-none"
-                          src="/videos/hero-video.mp4"
+                          src="/videos/car-rotate.mp4"
                         />
                       </div>
                       <div ref={ringRefMobileHeader} className="absolute inset-[-4px] rounded-full pointer-events-none" aria-hidden="true">
@@ -441,7 +473,16 @@ export default function Navbar() {
         {/* Premium Mobile Menu (rendered into document.body to avoid stacking-context issues) */}
         {typeof document !== 'undefined' && createPortal(
           <div>
-          <FocusTrap active={open} focusTrapOptions={{ onDeactivate: () => setOpen(false), clickOutsideDeactivates: true, returnFocusOnDeactivate: true }}>
+          <FocusTrap
+            active={open}
+            focusTrapOptions={{
+              onDeactivate: () => setOpen(false),
+              clickOutsideDeactivates: true,
+              returnFocusOnDeactivate: true,
+              escapeDeactivates: true,
+              initialFocus: '#mobile-menu'
+            }}
+          >
           <AnimatePresence>
             {open && (
             <motion.div
