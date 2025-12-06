@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import PrimaryButton from "./ui/PrimaryButton";
 import GhostButton from "./ui/GhostButton";
+import HowItWorks from "./HowItWorks";
 
 export default function Hero() {
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -471,6 +472,9 @@ export default function Hero() {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* Insert How It Works section (wired) */}
+      <HowItWorks />
 
       <style jsx global>{`
         @keyframes shimmer {
