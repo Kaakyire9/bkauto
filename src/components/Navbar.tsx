@@ -504,7 +504,9 @@ export default function Navbar() {
                 style={{
                   background: 'linear-gradient(135deg, #041123 0%, #0a1a2e 100%)',
                   borderLeft: '1px solid rgba(212, 175, 55, 0.2)',
-                  boxShadow: '-10px 0 50px rgba(0, 0, 0, 0.5)'
+                  boxShadow: '-10px 0 50px rgba(0, 0, 0, 0.5)',
+                  // respect iOS safe area inset at the bottom
+                  paddingBottom: 'env(safe-area-inset-bottom, 0px)'
                 }}
                 ref={mobileMenuRef}
               >
@@ -518,11 +520,12 @@ export default function Navbar() {
                     initialFocus: '#mobile-menu'
                   }}
                 >
-                  <div className="relative h-full">
+                  <div className="relative h-full flex flex-col">
                     {/* Royal top accent */}
                     <div className="h-1 bg-gradient-to-r from-[#C21E3A] via-[#D4AF37] to-[#1257D8]" />
-                    
-                    <div className="p-6 space-y-6">
+
+                    {/* Scrollable content */}
+                    <div className="p-6 space-y-6 overflow-y-auto flex-1">
                       {/* Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -540,23 +543,27 @@ export default function Navbar() {
                             <p className="text-xs text-[#C6CDD1]/50">Premium Access</p>
                           </div>
                         </div>
-                        <motion.button
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => setOpen(false)}
-                          className="p-2 rounded-lg text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-all"
-                        >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </motion.button>
                       </div>
 
-                      {/* User Profile */}
-                      {authLoaded && user && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="relative p-5 rounded-2xl overflow-hidden"
+                      {/* Footer badge always visible at bottom */}
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="p-4 text-center border-t border-[#D4AF37]/10 bg-gradient-to-b from-transparent to-transparent"
+                      >
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs text-[#C6CDD1]/50 mx-auto"
+                          style={{
+                            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05), rgba(18, 87, 216, 0.05))',
+                            border: '1px solid rgba(212, 175, 55, 0.1)'
+                          }}
+                        >
+                          <div className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse" />
+                          <span>ESTD 2018 • Premium Service</span>
+                        </div>
+                      </motion.div>
+                      {user && (
+                        <div className="relative p-5 rounded-2xl overflow-hidden"
                           style={{
                             background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(18, 87, 216, 0.1))',
                             border: '1px solid rgba(212, 175, 55, 0.2)'
@@ -582,7 +589,7 @@ export default function Navbar() {
                             </div>
                             <NotificationsBell />
                           </div>
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Navigation */}
@@ -789,7 +796,11 @@ export default function Navbar() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.8 }}
-                        className="absolute bottom-6 left-6 right-6 text-center"
+                        className="absolute left-6 right-6 text-center"
+                        style={{
+                          // place the badge above the safe-area inset on iOS
+                          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))'
+                        }}
                       >
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs text-[#C6CDD1]/50"
                           style={{
