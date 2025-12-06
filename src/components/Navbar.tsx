@@ -543,25 +543,25 @@ export default function Navbar() {
                             <p className="text-xs text-[#C6CDD1]/50">Premium Access</p>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Footer badge always visible at bottom */}
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="p-4 text-center border-t border-[#D4AF37]/10 bg-gradient-to-b from-transparent to-transparent"
-                      >
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs text-[#C6CDD1]/50 mx-auto"
+                        <motion.button
+                          type="button"
+                          onClick={() => closeMenu()}
+                          whileTap={{ scale: 0.95 }}
+                          className="p-2 rounded-lg"
+                          aria-label="Close menu"
+                          title="Close"
                           style={{
-                            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05), rgba(18, 87, 216, 0.05))',
-                            border: '1px solid rgba(212, 175, 55, 0.1)'
+                            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.06), rgba(10,26,46,0.06))',
+                            border: '1px solid rgba(212, 175, 55, 0.08)'
                           }}
                         >
-                          <div className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse" />
-                          <span>ESTD 2018 • Premium Service</span>
-                        </div>
-                      </motion.div>
+                          <svg className="w-5 h-5 text-[#D4AF37]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </motion.button>
+                      </div>
+
+                      {/* (Pinned footer badge moved to absolute position near bottom) */}
                       {user && (
                         <div className="relative p-5 rounded-2xl overflow-hidden"
                           style={{

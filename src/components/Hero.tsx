@@ -98,18 +98,19 @@ export default function Hero() {
         </video>
       )}
 
-      {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-brand-deep-navy/40 z-10" />
+      {/* Dark Overlay (use project deep navy) */}
+      <div className="absolute inset-0 bg-[#041123]/60 z-10" />
 
       {/* Hero Content */}
       <div className="relative w-full h-full flex flex-col justify-center px-6 md:px-16 lg:px-24 xl:px-32 text-white safe-area-x transition-opacity duration-500 z-20">
         <div className="max-w-3xl">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-4 bg-gradient-to-r from-[#D4AF37] via-[#C6CDD1] to-[#D4AF37] bg-clip-text text-transparent"
+            style={{ textShadow: '0 6px 30px rgba(212,175,55,0.15)' }}>
             Find your next car — we source, you decide.
           </h1>
 
-          <p className="text-lg sm:text-xl mb-8 text-neutral-200 max-w-2xl">
-            Place an order and receive offers from trusted sellers across our network. 
+          <p className="text-lg sm:text-xl mb-8 text-[#C6CDD1]/80 max-w-2xl">
+            Place an order and receive offers from trusted sellers across our network.
             Inspection, shipping, and transparent fees included.
           </p>
 
@@ -122,7 +123,7 @@ export default function Hero() {
             </Link>
           </div>
 
-          <p className="mt-6 text-sm text-neutral-300">
+          <p className="mt-6 text-sm text-[#C6CDD1]/60">
             No inventory — we find offers for your specification. Secure payments and insured shipping.
           </p>
         </div>
