@@ -1,3 +1,5 @@
+const palette = require('./design/tailwind-colors')
+
 module.exports = {
   content: [
     './src/app/**/*.{js,ts,jsx,tsx}',
@@ -6,6 +8,10 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Palette tokens (imported) — primary tokens available as utility classes
+        ...palette,
+
+        // Maintain a few legacy aliases for backwards compatibility
         brand: {
           DEFAULT: '#6B667A', // Grey-Purple Metallic (primary)
           muted: '#8A8695'
@@ -20,8 +26,7 @@ module.exports = {
         neutralSoft: '#D8D5D2', // Soft Grey (background)
         accent: {
           DEFAULT: '#C8752A' // Autumn Orange (accent)
-        }
-        ,
+        },
         gold: '#D4AF37'
       }
     }

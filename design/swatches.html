@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BKAuto - Palette Swatches</title>
+  <link rel="stylesheet" href="/design/palette.css">
+  <style>
+    .swatch .sample { height: 96px; border-radius: 8px; display:flex; align-items:center; justify-content:center }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>BK Auto - Palette Swatch & Accessibility Demo</h1>
+      <div>WCAG contrast checks and suggested tweaks included</div>
+    </div>
+
+    <div class="palette-grid">
+      <div class="swatch" style="background:var(--brand-deep-navy)">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Deep Navy Shield</div></div>
+        <div class="info">
+          <div class="label">--brand-deep-navy</div>
+          <div class="token-hex">#041123</div>
+          <div class="details">
+            <span class="sample-cta" style="background:var(--cta-cherry)">Primary CTA (white)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--brand-gold); color:#06121d">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Gold Royale</div></div>
+        <div class="info">
+          <div class="label">--brand-gold</div>
+          <div class="token-hex">#D4AF37</div>
+          <div class="details">
+            <span class="sample-cta" style="background:var(--brand-deep-navy); color: white">Logo accent</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--accent-ruby)">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Ruby Crown Red</div></div>
+        <div class="info">
+          <div class="label">--accent-ruby</div>
+          <div class="token-hex">#C21E3A</div>
+          <div class="details">
+            <span class="sample-cta">Badge</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--accent-sapphire)">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Sapphire Blue</div></div>
+        <div class="info">
+          <div class="label">--accent-sapphire</div>
+          <div class="token-hex">#1257D8</div>
+          <div class="details">
+            <span class="sample-cta">Links</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--accent-emerald)">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Emerald Green</div></div>
+        <div class="info">
+          <div class="label">--accent-emerald</div>
+          <div class="token-hex">#0FA662</div>
+          <div class="details">
+            <span class="sample-cta" style="background:var(--brand-deep-navy)">Success</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--base-glass); color: #E6EEF6">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Tinted Glass Base</div></div>
+        <div class="info">
+          <div class="label">--base-glass</div>
+          <div class="token-hex">rgba(6,12,23,0.86)</div>
+          <div class="details">
+            <span class="sample-cta" style="background:var(--brand-gold); color:#06121d">Overlay</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--metallic-grey-purple)">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Metallic Grey-Purple</div></div>
+        <div class="info">
+          <div class="label">--metallic-grey-purple</div>
+          <div class="token-hex">#6F6B78</div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--cta-cherry)">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Glossy Cherry Red (CTA)</div></div>
+        <div class="info">
+          <div class="label">--cta-cherry</div>
+          <div class="token-hex">#E53935</div>
+          <div class="details">
+            <span class="sample-cta" style="background: white; color: var(--brand-deep-navy);">Alt CTA</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--cta-autumn)">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Autumn Leaf Orange</div></div>
+        <div class="info">
+          <div class="label">--cta-autumn</div>
+          <div class="token-hex">#FF7A18</div>
+        </div>
+      </div>
+
+      <div class="swatch" style="background:var(--chrome-silver); color:#06121d">
+        <div class="sample"> <div style="font-size:18px;font-weight:700">Chrome Silver</div></div>
+        <div class="info">
+          <div class="label">--chrome-silver</div>
+          <div class="token-hex">#C6CDD1</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="footer-note">
+      Notes: white text is used above for contrast previews; check the contrast report generated with the script.
+    </div>
+  </div>
+</body>
+</html>

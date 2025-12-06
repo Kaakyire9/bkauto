@@ -1,0 +1,38 @@
+:root {
+  --brand-deep-navy: #041123;
+  --brand-gold: #D4AF37;
+  /* Accessible darker variant for text-on-dark backgrounds */
+  --brand-gold-dark: #886f1d;
+  --accent-ruby: #C21E3A;
+  --accent-sapphire: #1257D8;
+  --accent-emerald: #0FA662;
+  --accent-emerald-dark: #0c814c;
+  --base-glass: rgba(6,12,23,0.86);
+  --metallic-grey-purple: #6F6B78;
+  --cta-cherry: #E53935;
+  --cta-cherry-dark: #e32723;
+  --cta-autumn: #FF7A18;
+  --cta-autumn-dark: #c55400;
+  --chrome-silver: #C6CDD1;
+  --chrome-silver-dark: #687881;
+  --focus-outline: #FFD97A;
+}
+
+/* Utility classes for the swatch demo */
+.palette-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.swatch { border-radius: 8px; padding: 18px; color: white; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 6px 18px rgba(2,6,12,0.6); }
+.swatch small { opacity: 0.85; }
+.sample-cta { padding: 10px 14px; border-radius: 10px; color: white; font-weight: 600; display: inline-block; }
+.label { font-size: 13px; opacity: 0.95; }
+.token-hex { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; font-size: 12px; opacity: 0.9; }
+.details { display:flex; gap:8px; align-items:center; }
+.swatch .info { display:flex; flex-direction:column; }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto; background: linear-gradient(180deg, #0b1220 0%, #05060a 100%); color: #E6EEF6; padding: 28px; }
+.container { max-width: 1100px; margin: 0 auto; }
+.header { display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-bottom: 20px; }
+.header h1 { margin: 0; font-size: 20px; }
+.footer-note { margin-top: 18px; font-size: 13px; opacity: 0.8; }
+
+/* small helpers for light/dark label contrasts */
+.bg-light { color: #06121d; }
+.bg-dark { color: white; }

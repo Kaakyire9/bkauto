@@ -94,13 +94,12 @@ export default function Hero() {
           playsInline
           aria-hidden="true"
         >
-          <source src="/videos/hero-video.webm" type="video/webm" />
           <source src="/videos/hero-video.mp4" type="video/mp4" />
         </video>
       )}
 
       {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/40 z-10" />
+      <div className="absolute inset-0 bg-brand-deep-navy/40 z-10" />
 
       {/* Hero Content */}
       <div className="relative w-full h-full flex flex-col justify-center px-6 md:px-16 lg:px-24 xl:px-32 text-white safe-area-x transition-opacity duration-500 z-20">

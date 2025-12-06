@@ -18,16 +18,24 @@ export default function Navbar() {
   const [accountOpen, setAccountOpen] = useState(false)
   const [authLoaded, setAuthLoaded] = useState(false)
   const [showHeader, setShowHeader] = useState(true)
-  const [isCompact, setIsCompact] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const headerRef = useRef<HTMLElement | null>(null)
-  const ringRefDesktop = useRef<HTMLDivElement | null>(null)
-  const ringRefMobileHeader = useRef<HTMLDivElement | null>(null)
-  const carRefMobileHeader = useRef<HTMLDivElement | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
-  const mobileVideoRef = useRef<HTMLVideoElement | null>(null)
+  const [overlayActive, setOverlayActive] = useState(false)
+
+  function openMenu() {
+    setOverlayActive(false)
+    setOpen(true)
+  }
+
+  function closeMenu() {
+    setOverlayActive(false)
+    setOpen(false)
+  }
 
   useEffect(() => {
     let mounted = true
@@ -54,26 +62,6 @@ export default function Navbar() {
     }
   }, [])
 
-  // Auto-rotate (use requestAnimationFrame to avoid React re-renders every frame)
-  useEffect(() => {
-    let mounted = true
-    let rafId = 0
-    const start = performance.now()
-    function tick(now: number) {
-      if (!mounted) return
-      const rot = ((now - start) * 0.03) % 360
-      if (ringRefDesktop.current) ringRefDesktop.current.style.transform = `rotate(${ -rot * 0.5 }deg)`
-      if (ringRefMobileHeader.current) ringRefMobileHeader.current.style.transform = `rotate(${ -rot * 0.5 }deg)`
-      rafId = requestAnimationFrame(tick)
-    }
-    rafId = requestAnimationFrame(tick)
-    return () => {
-      mounted = false
-      cancelAnimationFrame(rafId)
-    }
-  }, [])
-
-  // Hide on scroll down, show on scroll up + compact mode
   useEffect(() => {
     let lastY = typeof window !== 'undefined' ? window.scrollY : 0
     let ticking = false
@@ -83,16 +71,14 @@ export default function Navbar() {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           const delta = currentY - lastY
-
-          // Compact mode after 100px
-          setIsCompact(currentY > 100)
+          setScrolled(currentY > 20)
 
           if (Math.abs(delta) < 10) {
             ticking = false
             return
           }
 
-          if (delta > 0 && currentY > 120) {
+          if (delta > 0 && currentY > 100) {
             setShowHeader(false)
           } else if (delta < 0) {
             setShowHeader(true)
@@ -109,13 +95,17 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  useEffect(() => {
+    setIsMounted(true)
+    return () => setIsMounted(false)
+  }, [])
+
   async function handleSignOut() {
     await supabase.auth.signOut()
     setUser(null)
     router.push('/')
   }
 
-  // Close menus on Escape key
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -126,508 +116,632 @@ export default function Navbar() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  // Accessibility & UX: robust scroll-lock (preserve scroll position) and ARIA announcements.
+
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    if (!open) {
-      // ensure the announcement clears after a short delay when closing
-      setAnnounce('Menu closed')
-      const t = setTimeout(() => setAnnounce(''), 800)
-      return () => clearTimeout(t)
-    }
-
-    // When opening, lock scroll by fixing the body and preserving scroll position (works better on mobile/iOS)
-    const prevOverflow = document.body.style.overflow || ''
-    const prevPosition = document.body.style.position || ''
-    const prevTop = document.body.style.top || ''
-    const prevWidth = document.body.style.width || ''
-    const scrollY = window.scrollY || 0
-
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.width = '100%'
-    // keep overflow as-is (position:fixed prevents scrolling)
-
-    setAnnounce('Menu opened')
-
-    return () => {
-      // restore previous styles and restore scroll position
-      document.body.style.position = prevPosition
-      document.body.style.top = prevTop
-      document.body.style.width = prevWidth
-      document.body.style.overflow = prevOverflow
-      window.scrollTo(0, scrollY)
-      setAnnounce('Menu closed')
-    }
-  }, [open])
-
-  // Close-on-outside-click: listen for mousedown and close the menu if the click is outside the menu and the menu button.
-  useEffect(() => {
-    if (typeof window === 'undefined' || !open) return
-
-    function onDocMouseDown(e: MouseEvent) {
-      const target = e.target as Node | null
-      if (!target) return
-      if (mobileMenuRef.current && mobileMenuRef.current.contains(target)) return
-      if (menuButtonRef.current && menuButtonRef.current.contains(target)) return
-      setOpen(false)
-    }
-
-    document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
-  }, [open])
-
-  // Attempt to ensure the small mobile header video can play on iOS/strict autoplay policies.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const v = mobileVideoRef.current
-    if (!v) return
-
-    try {
-      // iOS inline attribute
-      v.setAttribute('webkit-playsinline', 'true')
-      v.playsInline = true as any
-      v.muted = true
-      const p = v.play()
-      if (p && typeof p.catch === 'function') p.catch(() => {})
-    } catch (e) {
-      // ignore
+    let scrollY = 0
+    if (open) {
+      scrollY = window.scrollY || 0
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.left = '0'
+      document.body.style.right = '0'
+      document.body.style.width = '100%'
+      setAnnounce('Menu opened')
+    } else {
+      const top = document.body.style.top
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
+      if (top) {
+        const y = parseInt(top || '0', 10) * -1
+        window.scrollTo(0, y)
+      }
+      if (announce) setAnnounce('Menu closed')
     }
 
     return () => {
-      // nothing to cleanup
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
     }
-  }, [])
-
-  // Try to play video when the menu is opened (user gesture happened), helps iOS allow playback
-  useEffect(() => {
-    if (!open) return
-    const v = mobileVideoRef.current
-    if (!v) return
-    try {
-      const p = v.play()
-      if (p && typeof p.catch === 'function') p.catch(() => {})
-    } catch (e) {}
   }, [open])
+
+  const navItems = [
+    { href: '/', label: 'Home' },
+    { href: '/order', label: 'Place Order' },
+    { href: '/about', label: 'About' }
+  ]
 
   return (
-    <AnimatePresence>
+    <>
       <motion.header
-        ref={(el) => { headerRef.current = el }}
-        initial={{ y: -20, opacity: 0 }}
-        animate={{
-          y: showHeader ? 0 : headerRef.current ? -headerRef.current.offsetHeight - 8 : -120,
-          opacity: showHeader ? 1 : 0
+        ref={headerRef}
+        initial={{ y: 0, opacity: 1 }}
+        animate={{ 
+          y: showHeader ? 0 : -100, 
+          opacity: showHeader ? 1 : 0 
         }}
-        exit={{ y: -20, opacity: 0 }}
-        transition={{ duration: 0.35 }}
-        className="lg:fixed lg:left-4 lg:right-4 lg:top-4 lg:z-[9998] rounded-2xl border border-white/10 bg-dark/80 backdrop-blur-xl shadow-2xl transition-all"
+        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+        className={`fixed top-0 left-0 right-0 z-[90] transition-all duration-500 ${
+          scrolled
+            ? 'bg-[#041123]/90 backdrop-blur-lg shadow-2xl shadow-black/40'
+            : 'bg-[#041123]/60 backdrop-blur-sm'
+        }`}
+        style={{
+          borderBottom: scrolled ? '1px solid rgba(212, 175, 55, 0.12)' : '1px solid rgba(212, 175, 55, 0.06)'
+        }}
       >
-        <div aria-live="polite" role="status" className="sr-only">{announce}</div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            className="flex justify-between items-center relative"
-            animate={{ height: isCompact ? '64px' : '80px' }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* LEFT SIDE - LOGO ONLY (desktop) */}
-            <div className="hidden lg:flex items-center gap-6 flex-1">
-              <Link href="/" className="flex items-center gap-3 shrink-0">
-                <div className="w-14 h-14 relative overflow-hidden">
-                  <Image
-                    src="/images/bk-logo.png"
-                    alt="BK Auto Trading"
-                    fill
-                    className="object-contain"
-                    sizes="56px"
-                  />
-                </div>
-                <span className="text-2xl md:text-3xl text-white font-extrabold tracking-tight whitespace-nowrap" style={{
-                  fontFamily: "'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
-                  textShadow: '0 2px 10px rgba(0,0,0,0.45)'
-                }}>BK Auto Trading</span>
-              </Link>
-            </div>
+        {/* Luxurious gold accent line */}
+        <motion.div 
+          className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-0"
+          animate={{ opacity: scrolled ? 0.6 : 0 }}
+          transition={{ duration: 0.5 }}
+        />
 
-            {/* CENTER - ROTATING CAR (inline with nav items) */}
-            <motion.div 
-              className="hidden lg:flex items-center justify-center mx-4"
-              animate={{ 
-                scale: isCompact ? 0.8 : 1,
-                opacity: isCompact ? 0.8 : 1
-              }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="relative flex items-center gap-3">
-                {/* Car container */}
-                <motion.div
-                  className="relative flex items-center justify-center"
-                  style={{ 
-                    width: isCompact ? '50px' : '70px',
-                    height: isCompact ? '50px' : '70px'
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20 lg:h-24">
+            {/* Premium Logo */}
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 group relative">
+              <motion.div 
+                className="relative w-20 h-20 lg:w-24 lg:h-24"
+                whileHover={{ scale: 1.05, rotateY: 15 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                {/* Glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37] via-[#1257D8] to-[#C21E3A] opacity-20 blur-xl group-hover:opacity-40 transition-opacity duration-500 rounded-full" />
+                <Image
+                  src="/images/bk-logo1.png"
+                  alt="BK Auto Trading"
+                  fill
+                  className="object-contain relative z-10 drop-shadow-2xl"
+                  sizes="96px"
+                  priority
+                />
+              </motion.div>
+              <div className="block min-w-0">
+                <motion.span 
+                  className="block font-bold text-base sm:text-xl lg:text-2xl truncate bg-gradient-to-r from-[#D4AF37] via-[#C6CDD1] to-[#D4AF37] bg-clip-text text-transparent"
+                  style={{
+                    textShadow: '0 0 30px rgba(212, 175, 55, 0.3)'
                   }}
                 >
-                  {/* Subtle glow behind */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-xl rounded-full" />
-                  
-                  {/* Car Video - smaller to fit inside ring */}
-                  <div className="w-[85%] h-[85%] flex items-center justify-center relative z-10">
-                    <video 
-                      autoPlay 
-                      loop 
-                      muted 
-                      playsInline 
-                      className="w-full h-full object-contain"
-                      src="/videos/car-rotate.mp4"
-                    />
-                  </div>
-
-                  {/* Glowing animated ring indicator - DASHED CIRCLE - BIGGER */}
-                  <div ref={ringRefDesktop} className="absolute inset-[-4px] rounded-full pointer-events-none">
-                    <svg className="absolute inset-0 w-full h-full" style={{ transform: 'rotate(0deg)' }}>
-                      <circle
-                        cx="50%"
-                        cy="50%"
-                        r="48%"
-                        fill="none"
-                        stroke="url(#gradient)"
-                        strokeWidth="2"
-                        strokeDasharray="8 8"
-                        strokeLinecap="round"
-                        style={{ filter: 'drop-shadow(0 0 8px rgba(168, 85, 247, 0.8))' }}
-                      />
-                      <defs>
-                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#60A5FA" />
-                          <stop offset="33%" stopColor="#A78BFA" />
-                          <stop offset="66%" stopColor="#EC4899" />
-                          <stop offset="100%" stopColor="#F97316" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                  </div>
-                </motion.div>
+                  BK AUTO TRADING
+                </motion.span>
+                <span className="hidden sm:block text-xs lg:text-sm text-[#C6CDD1]/60 tracking-[0.3em] font-light">
+                  ESTD 2015
+                </span>
               </div>
-            </motion.div>
+            </Link>
 
-            {/* RIGHT SIDE - NAV LINKS + USER ACTIONS */}
-            <div className="flex items-center gap-3 flex-1 justify-end">
-              <nav className="hidden lg:flex items-center gap-1 mr-4">
-                <Link href="/" aria-current={pathname === '/' ? 'page' : undefined} className="group px-4 py-2 rounded-lg hover:bg-white/5 transition-all relative overflow-hidden">
-                  <span className="relative z-10 text-white/90 group-hover:text-white font-medium transition-colors">Home</span>
-                  <motion.div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100" layoutId="navHover" />
+            {/* Desktop Navigation - Royal styling */}
+            <nav className="hidden lg:flex items-center gap-2 relative">
+              {/* Decorative element */}
+              <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-transparent via-[#D4AF37] to-transparent opacity-30" />
+              
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={pathname === item.href ? 'page' : undefined}
+                  className="relative px-6 py-2.5 text-sm font-medium tracking-wide transition-all duration-300 group"
+                >
+                  <span className={`relative z-10 transition-all duration-300 ${
+                    pathname === item.href 
+                      ? 'text-[#D4AF37]' 
+                      : 'text-[#C6CDD1]/80 group-hover:text-[#D4AF37]'
+                  }`}>
+                    {item.label}
+                  </span>
+                  
+                  {/* Hover effect */}
+                  <motion.div
+                    className="absolute inset-0 rounded-lg bg-gradient-to-br from-[#D4AF37]/5 via-[#1257D8]/5 to-[#C21E3A]/5 opacity-0 group-hover:opacity-100"
+                    transition={{ duration: 0.3 }}
+                  />
+                  
+                  {/* Active indicator */}
+                  {pathname === item.href && (
+                    <motion.div
+                      layoutId="navbar-indicator"
+                      className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-0.5"
+                      style={{
+                        background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)',
+                        boxShadow: '0 0 10px rgba(212, 175, 55, 0.5)'
+                      }}
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                  
+                  {/* Bottom accent on hover */}
+                  <motion.div
+                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-transparent via-[#C6CDD1] to-transparent opacity-0 group-hover:opacity-100 group-hover:w-full transition-all duration-300"
+                  />
                 </Link>
-                <Link href="/order" aria-current={pathname === '/order' ? 'page' : undefined} className="group px-4 py-2 rounded-lg hover:bg-white/5 transition-all relative">
-                  <span className="relative z-10 text-white/90 group-hover:text-white font-medium transition-colors">Place Order</span>
-                </Link>
-                <Link href="/about" aria-current={pathname === '/about' ? 'page' : undefined} className="group px-4 py-2 rounded-lg hover:bg-white/5 transition-all relative">
-                  <span className="relative z-10 text-white/90 group-hover:text-white font-medium transition-colors">About</span>
-                </Link>
-              </nav>
+              ))}
+              
+              <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-transparent via-[#D4AF37] to-transparent opacity-30" />
+            </nav>
 
-              <div className="hidden lg:flex items-center gap-3 relative">
-                {authLoaded && user && <NotificationsBell />}
-                {!user ? (
-                  <>
-                    <Link href="/signin" className="text-sm text-white/90 hover:text-white px-4 py-2 rounded-lg hover:bg-white/5 transition-all" style={{
-                      textShadow: '0 1px 8px rgba(184, 176, 200, 0.25), 0 0 10px rgba(168, 85, 247, 0.25)'
-                    }}>
-                      Sign in
-                    </Link>
-                    <Link href="/signup">
-                      <PrimaryButton>Sign up</PrimaryButton>
-                    </Link>
-                  </>
-                ) : (
-                  <div className="relative">
-                    <button
-                      onClick={() => setAccountOpen(!accountOpen)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 transition-all"
-                      aria-expanded={accountOpen}
-                      aria-controls="account-menu"
-                      aria-haspopup="true"
+            {/* Desktop Actions */}
+            <div className="hidden lg:flex items-center gap-4">
+              {authLoaded && user && (
+                <div className="relative">
+                  <NotificationsBell />
+                  <motion.div
+                    className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#C21E3A]"
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                </div>
+              )}
+              
+              {!user ? (
+                <>
+                  <Link
+                    href="/signin"
+                    className="px-5 py-2.5 text-sm font-medium text-[#C6CDD1] hover:text-[#D4AF37] transition-all duration-300 relative group"
+                  >
+                    <span className="relative z-10">Sign in</span>
+                    <div className="absolute inset-0 rounded-lg border border-[#D4AF37]/0 group-hover:border-[#D4AF37]/30 transition-all duration-300" />
+                  </Link>
+                  <Link href="/signup">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="relative px-6 py-2.5 text-sm font-semibold text-[#041123] rounded-lg overflow-hidden group"
+                      style={{
+                        background: 'linear-gradient(135deg, #D4AF37 0%, #886f1d 100%)',
+                        boxShadow: '0 4px 20px rgba(212, 175, 55, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)'
+                      }}
                     >
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm text-white font-medium shadow-lg">
-                        {user?.email?.[0]?.toUpperCase() ?? 'U'}
-                      </div>
-                    </button>
+                      <span className="relative z-10">Sign up</span>
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-[#C21E3A]/20 via-[#1257D8]/20 to-[#0FA662]/20"
+                        animate={{ x: ['-100%', '100%'] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                      />
+                    </motion.button>
+                  </Link>
+                </>
+              ) : (
+                <div className="relative">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setAccountOpen(!accountOpen)}
+                    className="relative flex items-center gap-3 px-4 py-2 rounded-xl group"
+                    aria-expanded={accountOpen}
+                    aria-controls="account-menu"
+                    aria-haspopup="true"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(18, 87, 216, 0.1))',
+                      border: '1px solid rgba(212, 175, 55, 0.2)'
+                    }}
+                  >
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-sm text-[#041123] font-bold relative overflow-hidden"
+                      style={{
+                        background: 'linear-gradient(135deg, #D4AF37 0%, #C6CDD1 50%, #1257D8 100%)',
+                        boxShadow: '0 4px 15px rgba(212, 175, 55, 0.4), inset 0 1px 2px rgba(255,255,255,0.3)'
+                      }}
+                    >
+                      {user?.email?.[0]?.toUpperCase() ?? 'U'}
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                      />
+                    </div>
+                    <svg 
+                      className={`w-4 h-4 text-[#D4AF37] transition-transform duration-300 ${accountOpen ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </motion.button>
 
-                    <AnimatePresence>
-                      {accountOpen && (
+                  <AnimatePresence>
+                    {accountOpen && (
+                      <>
                         <motion.div
-                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                          id="account-menu"
-                          role="menu"
-                          aria-hidden={!accountOpen}
-                          className="absolute right-0 mt-2 w-56 rounded-xl bg-dark/90 backdrop-blur-xl border border-white/10 shadow-2xl p-2 overflow-hidden"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="fixed inset-0 z-[100]"
+                                onClick={() => setAccountOpen(false)}
+                              />
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                                id="account-menu"
+                                role="menu"
+                                className="absolute right-0 mt-3 w-72 rounded-2xl overflow-hidden z-[110]"
+                          style={{
+                            background: 'linear-gradient(135deg, #041123 0%, #0a1a2e 100%)',
+                            border: '1px solid rgba(212, 175, 55, 0.2)',
+                            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(212, 175, 55, 0.1)'
+                          }}
                         >
-                          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5" />
-                          <Link href="/dashboard" className="relative block px-4 py-3 text-[#B8B0C8] hover:text-[#D4CBDF] hover:bg-white/5 rounded-lg transition-all">
-                            Dashboard
-                          </Link>
-                          <Link href="/orders" className="relative block px-4 py-3 text-[#B8B0C8] hover:text-[#D4CBDF] hover:bg-white/5 rounded-lg transition-all">
-                            Orders
-                          </Link>
-                          <Link href="/profile" className="relative block px-4 py-3 text-[#B8B0C8] hover:text-[#D4CBDF] hover:bg-white/5 rounded-lg transition-all">
-                            Profile
-                          </Link>
-                          <div className="relative mt-2 px-2 pt-2 border-t border-white/10">
-                            <GhostButton onClick={handleSignOut}>Sign out</GhostButton>
+                          {/* Crown decoration */}
+                          <div className="h-1 bg-gradient-to-r from-[#C21E3A] via-[#D4AF37] to-[#1257D8]" />
+                          
+                          <div className="p-4 border-b border-[#D4AF37]/10">
+                            <p className="text-sm text-[#D4AF37] font-semibold truncate">{user?.email}</p>
+                            <p className="text-xs text-[#C6CDD1]/50 mt-1 flex items-center gap-1">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#0FA662]" />
+                              Premium Member
+                            </p>
+                          </div>
+                          
+                          <div className="p-2">
+                            {[
+                              { href: '/dashboard', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
+                              { href: '/orders', label: 'Orders', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+                              { href: '/profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' }
+                            ].map((item, i) => (
+                              <motion.div
+                                key={item.href}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                              >
+                                <Link
+                                  href={item.href}
+                                  className="flex items-center gap-3 px-4 py-3 text-sm text-[#C6CDD1]/80 hover:text-[#D4AF37] rounded-xl transition-all group relative overflow-hidden"
+                                >
+                                  <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                                  </svg>
+                                  <span className="relative z-10 font-medium">{item.label}</span>
+                                  <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/0 via-[#D4AF37]/5 to-[#D4AF37]/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </Link>
+                              </motion.div>
+                            ))}
+                          </div>
+
+                          <div className="p-2 border-t border-[#D4AF37]/10">
+                            <button
+                              onClick={handleSignOut}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm text-[#C21E3A] hover:text-white rounded-xl transition-all relative group overflow-hidden"
+                              style={{
+                                background: 'linear-gradient(135deg, rgba(194, 30, 58, 0.1), rgba(229, 57, 53, 0.1))'
+                              }}
+                            >
+                              <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                              </svg>
+                              <span className="relative z-10 font-semibold">Sign out</span>
+                              <div className="absolute inset-0 bg-[#C21E3A]/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Menu Button */}
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.95 }}
+              className="lg:hidden p-3 rounded-xl relative group z-[200]"
+              style={{
+                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(18, 87, 216, 0.1))',
+                border: '1px solid rgba(212, 175, 55, 0.2)'
+              }}
+              aria-controls="mobile-menu"
+              aria-expanded={open}
+              onClick={() => { if (!open) openMenu(); else closeMenu() }}
+              ref={menuButtonRef}
+            >
+              <span className="sr-only">Open menu</span>
+              <motion.div
+                animate={{ rotate: open ? 90 : 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                {open ? (
+                  <svg className="w-6 h-6 text-[#D4AF37]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6 text-[#D4AF37]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </motion.div>
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Bottom royal accent */}
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37]/20 to-transparent" />
+      </motion.header>
+
+      {/* Mobile Menu - Luxurious Side Panel */}
+      {isMounted && createPortal(
+        <AnimatePresence>
+          {open && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[95] lg:hidden ${overlayActive ? '' : 'pointer-events-none'}`}
+                onAnimationComplete={() => setOverlayActive(true)}
+                onClick={() => { if (overlayActive) closeMenu() }}
+              />
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                id="mobile-menu"
+                role="menu"
+                className="fixed top-0 right-0 bottom-0 w-full max-w-sm z-[100] lg:hidden overflow-y-auto"
+                style={{
+                  background: 'linear-gradient(135deg, #041123 0%, #0a1a2e 100%)',
+                  borderLeft: '1px solid rgba(212, 175, 55, 0.2)',
+                  boxShadow: '-10px 0 50px rgba(0, 0, 0, 0.5)'
+                }}
+                ref={mobileMenuRef}
+              >
+                <FocusTrap
+                  active={open && overlayActive}
+                  focusTrapOptions={{
+                    onDeactivate: () => setOpen(false),
+                    clickOutsideDeactivates: true,
+                    returnFocusOnDeactivate: true,
+                    escapeDeactivates: true,
+                    initialFocus: '#mobile-menu'
+                  }}
+                >
+                  <div className="relative h-full">
+                    {/* Royal top accent */}
+                    <div className="h-1 bg-gradient-to-r from-[#C21E3A] via-[#D4AF37] to-[#1257D8]" />
+                    
+                    <div className="p-6 space-y-6">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-12 h-12 relative">
+                            <Image
+                              src="/images/bk-logo1.png"
+                              alt="BK"
+                              fill
+                              className="object-contain"
+                              sizes="48px"
+                            />
+                          </div>
+                          <div>
+                            <h2 className="text-lg font-bold text-[#D4AF37]">Menu</h2>
+                            <p className="text-xs text-[#C6CDD1]/50">Premium Access</p>
+                          </div>
+                        </div>
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => setOpen(false)}
+                          className="p-2 rounded-lg text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-all"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </motion.button>
+                      </div>
+
+                      {/* User Profile */}
+                      {authLoaded && user && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="relative p-5 rounded-2xl overflow-hidden"
+                          style={{
+                            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(18, 87, 216, 0.1))',
+                            border: '1px solid rgba(212, 175, 55, 0.2)'
+                          }}
+                        >
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/5 rounded-full blur-3xl" />
+                          <div className="relative flex items-center gap-3">
+                            <div 
+                              className="w-14 h-14 rounded-full flex items-center justify-center text-[#041123] font-bold relative"
+                              style={{
+                                background: 'linear-gradient(135deg, #D4AF37 0%, #C6CDD1 50%, #1257D8 100%)',
+                                boxShadow: '0 4px 15px rgba(212, 175, 55, 0.4)'
+                              }}
+                            >
+                              {user?.email?.[0]?.toUpperCase() ?? 'U'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-[#D4AF37] font-semibold truncate">{user?.email}</p>
+                              <p className="text-xs text-[#C6CDD1]/50 flex items-center gap-1 mt-1">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#0FA662]" />
+                                Premium Member
+                              </p>
+                            </div>
+                            <NotificationsBell />
                           </div>
                         </motion.div>
                       )}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </div>
 
-              {/* Mobile: Logo + Menu - Premium Layout */}
-              <div className="flex lg:hidden items-center justify-between w-full relative">
-                <Link href="/" className="flex items-center gap-3">
-                  <div className="w-12 h-12 relative">
-                    <Image
-                      src="/images/bk-logo.png"
-                      alt="BK Auto Trading"
-                      fill
-                      className="object-contain"
-                      sizes="48px"
-                    />
-                  </div>
-                  <span className="font-semibold text-lg md:text-xl text-white">BK Auto Trading</span>
-                </Link>
+                      {/* Navigation */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 px-2 mb-3">
+                          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#D4AF37]/30 to-transparent" />
+                          <span className="text-xs text-[#C6CDD1]/50 font-medium tracking-widest">NAVIGATION</span>
+                          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#D4AF37]/30 to-transparent" />
+                        </div>
+                        
+                        {navItems.map((item, index) => {
+                          const icons = [
+                            'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+                            'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
+                            'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                          ]
+                          return (
+                          <motion.div
+                            key={item.href}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                          >
+                            <Link
+                              href={item.href}
+                              aria-current={pathname === item.href ? 'page' : undefined}
+                              className={`flex items-center gap-4 px-5 py-4 rounded-xl transition-all relative overflow-hidden group ${
+                                pathname === item.href
+                                  ? 'text-[#D4AF37]'
+                                  : 'text-[#C6CDD1]/80 hover:text-[#D4AF37]'
+                              }`}
+                              onClick={() => closeMenu()}
+                              style={pathname === item.href ? {
+                                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(18, 87, 216, 0.1))',
+                                border: '1px solid rgba(212, 175, 55, 0.3)'
+                              } : {}}
+                            >
+                              <svg className="w-5 h-5 flex-shrink-0 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icons[index]} />
+                              </svg>
+                              <span className="font-medium relative z-10">{item.label}</span>
+                              {pathname !== item.href && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/0 via-[#D4AF37]/5 to-[#D4AF37]/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              )}
+                            </Link>
+                          </motion.div>
+                        )})}
 
-                
-                  {/* Mobile inline small video-in-ring (between logo and menu) */}
-                  <div className="mx-3 flex items-center pointer-events-none">
-                    <div className="w-9 h-9 relative flex items-center justify-center">
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 blur-2xl rounded-full" />
-                      <div ref={carRefMobileHeader} className="relative z-10 w-[70%] h-[70%] flex items-center justify-center pointer-events-none" aria-hidden="true">
-                        <video
-                          ref={mobileVideoRef}
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          className="w-full h-full object-contain pointer-events-none"
-                          src="/videos/car-rotate.mp4"
-                        />
+                        {/* User Actions */}
+                        {user ? (
+                          <div className="space-y-2 pt-6 border-t border-[#D4AF37]/10 mt-6">
+                            <div className="flex items-center gap-2 px-2 mb-3">
+                              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#D4AF37]/30 to-transparent" />
+                              <span className="text-xs text-[#C6CDD1]/50 font-medium tracking-widest">ACCOUNT</span>
+                              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#D4AF37]/30 to-transparent" />
+                            </div>
+                            
+                            {[
+                              { href: '/dashboard', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
+                              { href: '/orders', label: 'My Orders', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+                              { href: '/profile', label: 'Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' }
+                            ].map((item, i) => (
+                              <motion.div
+                                key={item.href}
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: (navItems.length + i) * 0.1 }}
+                              >
+                                <Link
+                                  href={item.href}
+                                  className="flex items-center gap-4 px-5 py-4 text-[#C6CDD1]/80 hover:text-[#D4AF37] rounded-xl transition-all group relative overflow-hidden"
+                                  onClick={() => setOpen(false)}
+                                >
+                                  <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                                  </svg>
+                                  <span className="relative z-10">{item.label}</span>
+                                  <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/0 via-[#D4AF37]/5 to-[#D4AF37]/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </Link>
+                              </motion.div>
+                            ))}
+                            
+                            <motion.button
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: (navItems.length + 3) * 0.1 }}
+                              onClick={handleSignOut}
+                              className="w-full flex items-center justify-center gap-3 px-5 py-4 mt-4 text-[#C21E3A] hover:text-white rounded-xl transition-all relative group overflow-hidden"
+                              style={{
+                                background: 'linear-gradient(135deg, rgba(194, 30, 58, 0.15), rgba(229, 57, 53, 0.1))',
+                                border: '1px solid rgba(194, 30, 58, 0.3)'
+                              }}
+                            >
+                              <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                              </svg>
+                              <span className="relative z-10 font-semibold">Sign out</span>
+                              <div className="absolute inset-0 bg-[#C21E3A]/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </motion.button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 pt-6 border-t border-[#D4AF37]/10 mt-6">
+                            <Link
+                                  href="/signin"
+                                  className="block w-full text-center px-5 py-4 text-[#D4AF37] rounded-xl transition-all relative overflow-hidden group"
+                                  onClick={() => closeMenu()}
+                                  style={{
+                                    border: '1px solid rgba(212, 175, 55, 0.3)'
+                                  }}
+                                >
+                              <span className="relative z-10 font-medium">Sign in</span>
+                              <div className="absolute inset-0 bg-[#D4AF37]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </Link>
+                            <Link
+                              href="/signup"
+                              onClick={() => closeMenu()}
+                            >
+                              <motion.button
+                                whileTap={{ scale: 0.98 }}
+                                className="w-full px-5 py-4 text-[#041123] rounded-xl font-semibold relative overflow-hidden"
+                                style={{
+                                  background: 'linear-gradient(135deg, #D4AF37 0%, #886f1d 100%)',
+                                  boxShadow: '0 4px 20px rgba(212, 175, 55, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)'
+                                }}
+                              >
+                                <span className="relative z-10">Create Account</span>
+                                <motion.div
+                                  className="absolute inset-0 bg-gradient-to-r from-[#C21E3A]/20 via-[#1257D8]/20 to-[#0FA662]/20"
+                                  animate={{ x: ['-100%', '100%'] }}
+                                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                />
+                              </motion.button>
+                            </Link>
+                          </div>
+                        )}
                       </div>
-                      <div ref={ringRefMobileHeader} className="absolute inset-[-4px] rounded-full pointer-events-none" aria-hidden="true">
-                        <svg className="absolute inset-0 w-full h-full" style={{ transform: 'rotate(0deg)' }}>
-                          <circle
-                            cx="50%"
-                            cy="50%"
-                            r="48%"
-                            fill="none"
-                            stroke="url(#gradient-mobile-header)"
-                            strokeWidth="2"
-                            strokeDasharray="6 6"
-                            strokeLinecap="round"
-                            style={{ filter: 'drop-shadow(0 0 6px rgba(168, 85, 247, 0.7))' }}
-                          />
-                          <defs>
-                            <linearGradient id="gradient-mobile-header" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#60A5FA" />
-                              <stop offset="33%" stopColor="#A78BFA" />
-                              <stop offset="66%" stopColor="#EC4899" />
-                              <stop offset="100%" stopColor="#F97316" />
-                            </linearGradient>
-                          </defs>
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
 
-                <button
-                  className="inline-flex items-center justify-center p-2.5 rounded-xl text-white hover:bg-white/10 transition-all border border-white/10"
-                  aria-controls="mobile-menu"
-                  aria-expanded={open}
-                  onClick={() => setOpen(!open)}
-                  ref={menuButtonRef}
-                >
-                  <span className="sr-only">Open main menu</span>
-                  <motion.div
-                    animate={{ rotate: open ? 90 : 0 }}
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                  >
-                    {open ? (
-                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    ) : (
-                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
-                      </svg>
-                    )}
-                  </motion.div>
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Premium Mobile Menu (rendered into document.body to avoid stacking-context issues) */}
-        {typeof document !== 'undefined' && createPortal(
-          <div>
-          <FocusTrap
-            active={open}
-            focusTrapOptions={{
-              onDeactivate: () => setOpen(false),
-              clickOutsideDeactivates: true,
-              returnFocusOnDeactivate: true,
-              escapeDeactivates: true,
-              initialFocus: '#mobile-menu'
-            }}
-          >
-          <AnimatePresence>
-            {open && (
-            <motion.div
-              key="mobile-drawer"
-              initial={{ y: -8, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -8, opacity: 0 }}
-              transition={{ duration: 0.28, ease: "easeInOut" }}
-              id="mobile-menu"
-              role="menu"
-              aria-hidden={!open}
-              className="lg:hidden fixed left-0 right-0 z-[9999] overflow-auto bg-black/15 backdrop-blur-md border-t border-white/10"
-              style={{ top: headerRef.current ? `${headerRef.current.offsetHeight}px` : undefined }}
-              ref={(el) => { mobileMenuRef.current = el as HTMLDivElement | null }}
-            >
-              <div className="px-6 pt-6 pb-8 space-y-1">
-                
-                {/* Mobile dropdown car/video removed to avoid duplication */}
-
-                {/* User Info (if logged in) */}
-                {authLoaded && user && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.15 }}
-                    className="flex items-center gap-3 px-4 py-4 rounded-xl bg-white/5 border border-white/10 mb-4"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-medium shadow-lg">
-                      {user?.email?.[0]?.toUpperCase() ?? 'U'}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-white font-light text-sm">{user?.email}</p>
-                      <p className="text-white/60 text-xs">Premium Member</p>
-                    </div>
-                    <NotificationsBell />
-                  </motion.div>
-                )}
-
-                {/* Navigation Links */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="space-y-1"
-                >
-                  <Link href="/" aria-current={pathname === '/' ? 'page' : undefined} className="flex items-center gap-3 px-5 py-4 rounded-xl text-white hover:bg-white/10 transition-all group">
-                    <svg className="w-5 h-5 text-white/60 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    <span className="font-light">Home</span>
-                  </Link>
-                  
-                    {/* 'How it works' removed per request */}
-                  
-                  <Link href="/order" aria-current={pathname === '/order' ? 'page' : undefined} className="flex items-center gap-3 px-5 py-4 rounded-xl text-white hover:bg-white/10 transition-all group bg-white/5">
-                    <svg className="w-5 h-5 text-white/60 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                    <span className="font-light">Place Order</span>
-                  </Link>
-                  
-                  <Link href="/about" aria-current={pathname === '/about' ? 'page' : undefined} className="flex items-center gap-3 px-5 py-4 rounded-xl text-white hover:bg-white/10 transition-all group">
-                    <svg className="w-5 h-5 text-white/60 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span className="font-light">About</span>
-                  </Link>
-                </motion.div>
-
-                {/* Settings & Actions */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.25 }}
-                  className="border-t border-white/10 mt-6 pt-6 space-y-4"
-                >
-                  {/* Region Selector */}
-                  <div>
-                    <label className="block text-xs text-white/60 font-light mb-2 px-1">Region</label>
-                    <select className="w-full border border-white/10 rounded-xl px-4 py-3 text-sm bg-white/5 text-white backdrop-blur-md hover:bg-white/10 transition-all">
-                      <option>🌍 Global</option>
-                      <option>🇺🇸 United States</option>
-                      <option>🇪🇺 Europe</option>
-                    </select>
-                  </div>
-
-                  {/* Auth Buttons or User Menu */}
-                  {!user ? (
-                    <div className="flex flex-col gap-3">
-                      <Link href="/signin" className="flex items-center justify-center gap-2 px-5 py-3.5 border border-white/20 rounded-xl text-white hover:bg-white/5 transition-all font-light">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                        </svg>
-                        Sign in
-                      </Link>
-                      <Link href="/signup" className="flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-blue-500 via-purple-600 to-pink-500 text-white rounded-xl hover:shadow-2xl hover:shadow-purple-500/30 transition-all font-light">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                        </svg>
-                        Create Account
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Link href="/dashboard" className="flex items-center gap-3 px-5 py-3 rounded-xl text-white/90 hover:text-white hover:bg-white/5 transition-all">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                        </svg>
-                        Dashboard
-                      </Link>
-                      <Link href="/orders" className="flex items-center gap-3 px-5 py-3 rounded-xl text-white/90 hover:text-white hover:bg-white/5 transition-all">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        My Orders
-                      </Link>
-                      <Link href="/profile" className="flex items-center gap-3 px-5 py-3 rounded-xl text-white/90 hover:text-white hover:bg-white/5 transition-all">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        Profile
-                      </Link>
-                      <div className="pt-3 border-t border-white/10">
-                        <button
-                          onClick={handleSignOut}
-                          className="flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl text-white/80 hover:text-white hover:bg-red-500/10 border border-red-500/20 transition-all"
+                      {/* Footer Badge */}
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.8 }}
+                        className="absolute bottom-6 left-6 right-6 text-center"
+                      >
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs text-[#C6CDD1]/50"
+                          style={{
+                            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05), rgba(18, 87, 216, 0.05))',
+                            border: '1px solid rgba(212, 175, 55, 0.1)'
+                          }}
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
-                          Sign out
-                        </button>
-                      </div>
+                          <div className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse" />
+                          <span>ESTD 2018 • Premium Service</span>
+                        </div>
+                      </motion.div>
                     </div>
-                  )}
-                </motion.div>
-              </div>
-            </motion.div>
-            )}
-          </AnimatePresence>
-          </FocusTrap>
-          </div>,
-          document.body
-        )}
-      </motion.header>
-    </AnimatePresence>
+                  </div>
+                </FocusTrap>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Accessibility announcer */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announce}
+      </div>
+    </>
   )
 }
