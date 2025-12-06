@@ -8,6 +8,7 @@ import PrimaryButton from './ui/PrimaryButton'
 import GhostButton from './ui/GhostButton'
 import NotificationsBell from './NotificationsBell'
 import { motion, AnimatePresence } from 'framer-motion'
+import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import FocusTrap from 'focus-trap-react'
 
@@ -26,6 +27,14 @@ export default function Navbar() {
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const [overlayActive, setOverlayActive] = useState(false)
+
+  const ModelViewerClient = dynamic(() => import('./ModelViewerClient'), {
+    ssr: false,
+    loading: () => (
+      <div className="h-56 bg-[#041123]/20 rounded-xl flex items-center justify-center text-sm text-[#C6CDD1]/60">Loading 3D preview…</div>
+    )
+  })
+  const modelViewerRef = React.useRef<import('./ModelViewerClient').ModelViewerHandle | null>(null)
 
   function openMenu() {
     setOverlayActive(false)
@@ -712,6 +721,70 @@ export default function Navbar() {
                       </div>
 
                       {/* Footer Badge */}
+                      {/* 3D Preview (MVP) */}
+                      <div className="mt-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold text-[#D4AF37]">3D Preview</h3>
+                          <span className="text-xs text-[#C6CDD1]/50">Try in AR</span>
+                        </div>
+                          <div className="mb-4">
+                            <ModelViewerClient viewerRef={modelViewerRef} src="/models/vehicle_draco.glb" />
+                          </div>
+
+                          {/* Color swatches */}
+                          <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold text-[#D4AF37]">Colors</span>
+                              <span className="text-xs text-[#C6CDD1]/50">Tap to apply</span>
+                            </div>
+                            <div className="flex gap-2">
+                              {[
+                                { hex: '#ffffff', label: 'White' },
+                                { hex: '#000000', label: 'Black' },
+                                { hex: '#D4AF37', label: 'Gold' },
+                                { hex: '#FF0000', label: 'Red' },
+                                { hex: '#1257D8', label: 'Blue' },
+                                { hex: '#0FA662', label: 'Green' }
+                              ].map((c) => (
+                                <button
+                                  key={c.hex}
+                                  title={c.label}
+                                  onClick={async () => {
+                                    try {
+                                      // try applying to material name 'body' or generic null (apply to all meshes)
+                                      const ok1 = await modelViewerRef.current?.setMaterialColor('body', c.hex)
+                                      const ok2 = await modelViewerRef.current?.setMaterialColor(null, c.hex)
+                                      // if neither succeeded, quietly continue
+                                      void ok1; void ok2
+                                    } catch (e) {
+                                      console.warn('color apply failed', e)
+                                    }
+                                  }}
+                                  className="w-10 h-10 rounded-full border-2 border-[#041123]/10 shadow-inner"
+                                  style={{ background: c.hex }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <a
+                              href="/order"
+                              onClick={() => closeMenu()}
+                              className="flex-1 text-center px-4 py-2 rounded-xl text-[#041123] font-semibold"
+                              style={{ background: 'linear-gradient(135deg, #D4AF37 0%, #886f1d 100%)' }}
+                            >
+                              Order This
+                            </a>
+                            <button
+                              onClick={() => { /* placeholder for extra actions */ }}
+                              className="px-4 py-2 rounded-xl border border-[#D4AF37]/20 text-[#D4AF37]"
+                            >
+                              Info
+                            </button>
+                          </div>
+                      </div>
+
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}

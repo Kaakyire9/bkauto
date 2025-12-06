@@ -9,6 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@google/model-viewer": "^4.1.0",
     "@supabase/supabase-js": "^2.0.0",
     "autoprefixer": "^10.0.0",
     "focus-trap-react": "^11.0.4",
