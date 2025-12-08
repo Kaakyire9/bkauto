@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import ResetPasswordForm from '../../components/ResetPasswordForm'
 import Footer from '../../components/Footer'
 
@@ -84,7 +85,9 @@ export default function Page() {
 
           {/* RIGHT SIDE - Reset Password Form */}
           <div className="flex items-center justify-center">
-            <ResetPasswordForm />
+            <Suspense fallback={<div className="text-[#C6CDD1]">Loading...</div>}>
+              <ResetPasswordForm />
+            </Suspense>
           </div>
         </div>
       </div>
