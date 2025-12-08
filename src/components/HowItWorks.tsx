@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
+import MotionPrimaryButton from "./ui/MotionPrimaryButton";
+import MotionGhostButton from "./ui/MotionGhostButton";
 
 export default function HowItWorks() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -74,11 +76,12 @@ export default function HowItWorks() {
 
   return (
     <section 
-      ref={sectionRef}
-      className="relative py-24 lg:py-32 overflow-hidden"
+  ref={sectionRef}
+  className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] py-24 lg:py-32 overflow-hidden"
+
       style={{ 
         position: 'relative',
-        background: 'linear-gradient(180deg, #041123 0%, #0a1a2e 50%, #041123 100%)'
+        background: '#6B667A',
       }}
     >
       {/* Animated Background Elements - Very Subtle */}
@@ -118,7 +121,7 @@ export default function HowItWorks() {
         }}
       />
 
-      <div className="relative max-w-7xl mx-auto px-6 md:px-8 lg:px-12">
+      <div className="relative w-full px-6 md:px-8 lg:px-12">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -602,14 +605,10 @@ export default function HowItWorks() {
 
             <div className="flex flex-wrap justify-center gap-4">
               <Link href="/order">
-                <motion.button
+                <MotionPrimaryButton
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.98 }}
-                  className="relative px-8 py-4 text-base font-semibold text-[#041123] rounded-xl overflow-hidden group"
-                  style={{
-                    background: 'linear-gradient(135deg, #D4AF37 0%, #886f1d 100%)',
-                    boxShadow: '0 10px 40px rgba(212, 175, 55, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)'
-                  }}
+                  className="relative px-8 py-4 text-base font-semibold rounded-xl overflow-hidden group"
                 >
                   <span className="relative z-10 flex items-center gap-2">
                     Place Your Order
@@ -622,30 +621,23 @@ export default function HowItWorks() {
                     animate={{ x: ['-100%', '100%'] }}
                     transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                   />
-                </motion.button>
+                </MotionPrimaryButton>
               </Link>
 
               <Link href="/contact">
-                <motion.button
+                <MotionGhostButton
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   className="px-8 py-4 text-base font-semibold rounded-xl backdrop-blur-xl transition-all relative group border-2"
-                  style={{
-                    background: 'rgba(212, 175, 55, 0.15)',
-                    borderColor: 'rgba(212, 175, 55, 0.5)',
-                    color: '#D4AF37',
-                    textShadow: '0 2px 15px rgba(0, 0, 0, 0.9)',
-                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
-                  }}
                 >
-                  <span className="relative z-10 flex items-center gap-2">
+                  <span className="relative z-10 flex items-center gap-2 text-white">
                     Talk to a Specialist
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                   </span>
                   <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-                </motion.button>
+                </MotionGhostButton>
               </Link>
             </div>
           </div>

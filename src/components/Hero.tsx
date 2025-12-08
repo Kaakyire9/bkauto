@@ -1,12 +1,13 @@
 "use client";
 
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
-import PrimaryButton from "./ui/PrimaryButton";
-import GhostButton from "./ui/GhostButton";
-import HowItWorks from "./HowItWorks";
+import MotionPrimaryButton from "./ui/MotionPrimaryButton";
+import MotionGhostButton from "./ui/MotionGhostButton";
 
 export default function Hero() {
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -144,53 +145,7 @@ export default function Hero() {
         )}
       </motion.div>
 
-      {/* Sophisticated Gradient Overlays */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#041123]/95 via-[#041123]/70 to-[#041123]/95 z-10" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#041123]/80 via-transparent to-[#041123]/80 z-10" />
-      
-      {/* Animated Gold Accent Lines */}
-      <motion.div
-        className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent z-20"
-        animate={{ opacity: [0.3, 0.8, 0.3] }}
-        transition={{ duration: 3, repeat: Infinity }}
-      />
-      <motion.div
-        className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent z-20"
-        animate={{ opacity: [0.3, 0.8, 0.3] }}
-        transition={{ duration: 3, repeat: Infinity, delay: 1.5 }}
-      />
-
-      {/* Floating Geometric Ornaments */}
-      {!reducedMotion && (
-        <>
-          <motion.div
-            className="absolute top-1/4 left-[10%] w-64 h-64 rounded-full opacity-10 blur-3xl z-10"
-            style={{
-              background: 'radial-gradient(circle, #D4AF37 0%, transparent 70%)',
-              x: mousePosition.x * 0.5,
-              y: mousePosition.y * 0.5
-            }}
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.1, 0.2, 0.1]
-            }}
-            transition={{ duration: 8, repeat: Infinity }}
-          />
-          <motion.div
-            className="absolute bottom-1/4 right-[10%] w-96 h-96 rounded-full opacity-10 blur-3xl z-10"
-            style={{
-              background: 'radial-gradient(circle, #1257D8 0%, transparent 70%)',
-              x: mousePosition.x * -0.3,
-              y: mousePosition.y * -0.3
-            }}
-            animate={{
-              scale: [1, 1.3, 1],
-              opacity: [0.1, 0.15, 0.1]
-            }}
-            transition={{ duration: 10, repeat: Infinity }}
-          />
-        </>
-      )}
+      {/* Background overlays and decorative ornaments removed so video is unobstructed */}
 
       {/* Main Content */}
       <motion.div 
@@ -201,26 +156,7 @@ export default function Hero() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left Column - Text Content */}
             <div className="space-y-8">
-              {/* Premium Badge */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
-                className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full backdrop-blur-xl"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(18, 87, 216, 0.1))',
-                  border: '1px solid rgba(212, 175, 55, 0.3)'
-                }}
-              >
-                <motion.div
-                  className="w-2 h-2 rounded-full bg-[#D4AF37]"
-                  animate={{ scale: [1, 1.3, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                />
-                <span className="text-sm font-medium text-[#D4AF37] tracking-wide">
-                  ESTD 2018 • PREMIUM AUTO SOURCING
-                </span>
-              </motion.div>
+              {/* Premium badge removed as requested */}
 
               {/* Main Headline */}
               <motion.div
@@ -276,48 +212,26 @@ export default function Hero() {
                 className="flex flex-wrap gap-4"
               >
                 <Link href="/order">
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="relative px-8 py-4 text-base font-semibold text-[#041123] rounded-xl overflow-hidden group"
-                    style={{
-                      background: 'linear-gradient(135deg, #D4AF37 0%, #886f1d 100%)',
-                      boxShadow: '0 10px 40px rgba(212, 175, 55, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)'
-                    }}
-                  >
-                    <span className="relative z-10 flex items-center gap-2">
+                  <MotionPrimaryButton whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} className="px-8 py-4 text-base font-semibold">
+                    <span className="flex items-center gap-2">
                       Order Now
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
                     </span>
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-[#C21E3A]/30 via-[#1257D8]/30 to-[#0FA662]/30"
-                      animate={{ x: ['-100%', '100%'] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                    />
-                  </motion.button>
+                  </MotionPrimaryButton>
                 </Link>
-                
+
                 <Link href="/how-it-works">
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="px-8 py-4 text-base font-medium text-[#D4AF37] rounded-xl backdrop-blur-xl transition-all relative group overflow-hidden"
-                    style={{
-                      background: 'rgba(212, 175, 55, 0.05)',
-                      border: '1px solid rgba(212, 175, 55, 0.3)'
-                    }}
-                  >
-                    <span className="relative z-10 flex items-center gap-2">
+                  <MotionGhostButton whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} className="px-8 py-4 text-base font-medium text-white rounded-xl bg-bk-gold/5 border border-bk-gold/30 backdrop-blur-xl transition-all">
+                    <span className="flex items-center gap-2">
                       How It Works
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </motion.button>
+                  </MotionGhostButton>
                 </Link>
               </motion.div>
 
@@ -472,9 +386,6 @@ export default function Hero() {
           </div>
         </motion.div>
       </motion.div>
-
-      {/* Insert How It Works section (wired) */}
-      <HowItWorks />
 
       <style jsx global>{`
         @keyframes shimmer {

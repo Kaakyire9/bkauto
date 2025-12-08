@@ -4,8 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '../lib/supabaseClient'
-import PrimaryButton from './ui/PrimaryButton'
-import GhostButton from './ui/GhostButton'
+import MotionPrimaryButton from './ui/MotionPrimaryButton'
+import MotionGhostButton from './ui/MotionGhostButton'
 import NotificationsBell from './NotificationsBell'
 import { motion, AnimatePresence } from 'framer-motion'
 import dynamic from 'next/dynamic'
@@ -292,22 +292,17 @@ export default function Navbar() {
               
               {!user ? (
                 <>
-                  <Link
-                    href="/signin"
-                    className="px-5 py-2.5 text-sm font-medium text-[#C6CDD1] hover:text-[#D4AF37] transition-all duration-300 relative group"
-                  >
-                    <span className="relative z-10">Sign in</span>
-                    <div className="absolute inset-0 rounded-lg border border-[#D4AF37]/0 group-hover:border-[#D4AF37]/30 transition-all duration-300" />
+                  <Link href="/signin">
+                    <MotionGhostButton className="px-5 py-2.5 text-sm font-medium text-[#C6CDD1] hover:text-[#D4AF37] transition-all duration-300 relative group">
+                      <span className="relative z-10">Sign in</span>
+                      <div className="absolute inset-0 rounded-lg border border-[#D4AF37]/0 group-hover:border-[#D4AF37]/30 transition-all duration-300" />
+                    </MotionGhostButton>
                   </Link>
                   <Link href="/signup">
-                    <motion.button
+                    <MotionPrimaryButton
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="relative px-6 py-2.5 text-sm font-semibold text-[#041123] rounded-lg overflow-hidden group"
-                      style={{
-                        background: 'linear-gradient(135deg, #D4AF37 0%, #886f1d 100%)',
-                        boxShadow: '0 4px 20px rgba(212, 175, 55, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)'
-                      }}
+                      className="relative px-6 py-2.5 text-sm font-semibold rounded-lg overflow-hidden group"
                     >
                       <span className="relative z-10">Sign up</span>
                       <motion.div
@@ -315,7 +310,7 @@ export default function Navbar() {
                         animate={{ x: ['-100%', '100%'] }}
                         transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                       />
-                    </motion.button>
+                    </MotionPrimaryButton>
                   </Link>
                 </>
               ) : (
@@ -692,22 +687,14 @@ export default function Navbar() {
                           </div>
                         ) : (
                           <div className="space-y-3 pt-6 border-t border-[#D4AF37]/10 mt-6">
-                            <Link
-                                  href="/signin"
-                                  className="block w-full text-center px-5 py-4 text-[#D4AF37] rounded-xl transition-all relative overflow-hidden group"
-                                  onClick={() => closeMenu()}
-                                  style={{
-                                    border: '1px solid rgba(212, 175, 55, 0.3)'
-                                  }}
-                                >
-                              <span className="relative z-10 font-medium">Sign in</span>
-                              <div className="absolute inset-0 bg-[#D4AF37]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Link href="/signin" onClick={() => closeMenu()}>
+                              <MotionGhostButton className="block w-full text-center px-5 py-4 text-[#D4AF37] rounded-xl transition-all relative overflow-hidden group" style={{ border: '1px solid rgba(212, 175, 55, 0.3)' }}>
+                                <span className="relative z-10 font-medium">Sign in</span>
+                                <div className="absolute inset-0 bg-[#D4AF37]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </MotionGhostButton>
                             </Link>
-                            <Link
-                              href="/signup"
-                              onClick={() => closeMenu()}
-                            >
-                              <motion.button
+                            <Link href="/signup" onClick={() => closeMenu()}>
+                              <MotionPrimaryButton
                                 whileTap={{ scale: 0.98 }}
                                 className="w-full px-5 py-4 text-[#041123] rounded-xl font-semibold relative overflow-hidden"
                                 style={{
@@ -721,7 +708,7 @@ export default function Navbar() {
                                   animate={{ x: ['-100%', '100%'] }}
                                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                                 />
-                              </motion.button>
+                              </MotionPrimaryButton>
                             </Link>
                           </div>
                         )}
@@ -775,20 +762,14 @@ export default function Navbar() {
                           </div>
 
                           <div className="flex gap-2">
-                            <a
-                              href="/order"
-                              onClick={() => closeMenu()}
-                              className="flex-1 text-center px-4 py-2 rounded-xl text-[#041123] font-semibold"
-                              style={{ background: 'linear-gradient(135deg, #D4AF37 0%, #886f1d 100%)' }}
-                            >
-                              Order This
-                            </a>
-                            <button
-                              onClick={() => { /* placeholder for extra actions */ }}
-                              className="px-4 py-2 rounded-xl border border-[#D4AF37]/20 text-[#D4AF37]"
-                            >
+                            <Link href="/order">
+                              <MotionPrimaryButton onClick={() => closeMenu()} className="flex-1 text-center px-4 py-2 rounded-xl font-semibold">
+                                Order This
+                              </MotionPrimaryButton>
+                            </Link>
+                            <MotionGhostButton onClick={() => { /* placeholder for extra actions */ }} className="px-4 py-2 rounded-xl border border-[#D4AF37]/20 text-[#D4AF37]">
                               Info
-                            </button>
+                            </MotionGhostButton>
                           </div>
                       </div>
 
