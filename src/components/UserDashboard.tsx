@@ -1,6 +1,7 @@
 "use client"
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '../lib/supabaseClient'
 import MotionPrimaryButton from './ui/MotionPrimaryButton'
 import MotionGhostButton from './ui/MotionGhostButton'
 
@@ -23,27 +24,107 @@ export default function UserDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'vehicles' | 'settings'>('overview')
   const [user, setUser] = useState({
-    name: 'Alexander Thompson',
-    email: 'alexander@example.com',
+    name: 'Guest User',
+    email: 'user@example.com',
     member_since: 'January 2024',
     tier: 'Premium',
     avatar: null as string | null
   })
   const [uploadingProfile, setUploadingProfile] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<UserStats>({
+    ordersPlaced: 0,
+    vehiclesSourced: 0,
+    activeOrders: 0,
+    savedVehicles: 0
+  })
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
 
-  const stats: UserStats = {
-    ordersPlaced: 12,
-    vehiclesSourced: 8,
-    activeOrders: 2,
-    savedVehicles: 15
-  }
+  // Fetch user data and orders on mount
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true)
+        
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session) {
+          router.push('/signin')
+          return
+        }
 
-  const recentOrders: RecentOrder[] = [
-    { id: '#ORD-2024-001', vehicle: '2023 BMW M440i xDrive', status: 'in-progress', date: 'Dec 5, 2024', amount: '$65,000' },
-    { id: '#ORD-2024-002', vehicle: '2024 Mercedes-AMG E63', status: 'pending', date: 'Dec 4, 2024', amount: '$89,500' },
-    { id: '#ORD-2024-003', vehicle: '2022 Porsche 911 Carrera', status: 'completed', date: 'Nov 28, 2024', amount: '$105,000' }
-  ]
+        const userId = session.user.id
+        const email = session.user.email || 'user@example.com'
+        const fullName = session.user.user_metadata?.full_name || 'Guest User'
+        const createdAt = new Date(session.user.created_at)
+        const memberSince = createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+
+        setUser(prev => ({
+          ...prev,
+          name: fullName,
+          email: email,
+          member_since: memberSince
+        }))
+
+        // Fetch orders from orders table (you'll need to create this table in Supabase)
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+
+        if (!ordersError && ordersData) {
+          // Calculate stats
+          const activeCount = ordersData.filter((o: any) => o.status === 'in-progress' || o.status === 'pending').length
+          const completedCount = ordersData.filter((o: any) => o.status === 'completed').length
+
+          setStats({
+            ordersPlaced: ordersData.length,
+            vehiclesSourced: completedCount,
+            activeOrders: activeCount,
+            savedVehicles: 0 // Will update when saved_vehicles table is created
+          })
+
+          // Map orders to display format
+          const formattedOrders = ordersData.slice(0, 3).map((order: any) => ({
+            id: `#ORD-${order.id.slice(0, 8).toUpperCase()}`,
+            vehicle: `${order.make} ${order.model} ${order.year}`,
+            status: order.status || 'pending',
+            date: new Date(order.created_at).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric' 
+            }),
+            amount: '$0' // Add budget field to orders table if needed
+          }))
+          
+          setRecentOrders(formattedOrders)
+        }
+
+        // Fetch saved vehicles (when table is created)
+        const { data: vehiclesData } = await supabase
+          .from('saved_vehicles')
+          .select('*')
+          .eq('user_id', userId)
+
+        if (vehiclesData) {
+          setStats(prev => ({
+            ...prev,
+            savedVehicles: vehiclesData.length
+          }))
+        }
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [])
 
   const statusColors = {
     'pending': { bg: 'bg-[#F59E0B]/10', text: 'text-[#F59E0B]', border: 'border-[#F59E0B]/30' },
@@ -104,6 +185,15 @@ export default function UserDashboard() {
           }}
         ></div>
       </div>
+
+      {loading && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 pointer-events-auto">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-[#D4AF37]/30 border-t-[#D4AF37] rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-[#D4AF37] font-semibold">Loading your dashboard...</p>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10">
         {/* Header */}

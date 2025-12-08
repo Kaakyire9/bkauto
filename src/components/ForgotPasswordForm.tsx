@@ -28,18 +28,62 @@ export default function ForgotPasswordForm() {
 
     setLoading(true)
     try {
+      // Get the reset URL from environment or construct it
+      const resetRedirectUrl = process.env.NEXT_PUBLIC_RESET_PASSWORD_URL || 
+        `${window.location.origin}/reset-password`
+
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: resetRedirectUrl
       })
 
       if (resetError) {
-        setError(resetError.message || String(resetError))
+        // Handle specific error messages
+        if (resetError.message.includes('not found')) {
+          setError('No account found with this email address')
+        } else if (resetError.message.includes('rate limit')) {
+          setError('Too many reset requests. Please try again later.')
+        } else {
+          setError(resetError.message || 'Failed to send reset link')
+        }
       } else {
         setSubmitted(true)
-        setMessage('Check your email for password reset instructions.')
+        setMessage(`Check your email (${email}) for password reset instructions.`)
       }
     } catch (e: any) {
-      setError(e?.message || String(e))
+      setError(e?.message || 'An unexpected error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendAnotherLink = async () => {
+    setError(null)
+    setMessage(null)
+    const v = validate()
+    if (v) { setError(v); return }
+
+    setLoading(true)
+    try {
+      const resetRedirectUrl = process.env.NEXT_PUBLIC_RESET_PASSWORD_URL || 
+        `${window.location.origin}/reset-password`
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: resetRedirectUrl
+      })
+
+      if (resetError) {
+        if (resetError.message.includes('rate limit')) {
+          setError('Too many reset requests. Please try again later.')
+        } else {
+          setError(resetError.message || 'Failed to send reset link')
+        }
+        setSubmitted(false)
+      } else {
+        setMessage(`Reset link sent to ${email}. Check your spam folder if you don't see it.`)
+      }
+    } catch (e: any) {
+      setError(e?.message || 'An unexpected error occurred.')
+      setSubmitted(false)
     } finally {
       setLoading(false)
     }
@@ -128,10 +172,11 @@ export default function ForgotPasswordForm() {
           <div className="pt-2">
             <MotionGhostButton
               type="button"
-              onClick={() => setSubmitted(false)}
-              className="w-full px-6 py-3 rounded-xl font-semibold text-white"
+              onClick={handleSendAnotherLink}
+              disabled={loading}
+              className="w-full px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Send Another Link
+              {loading ? 'Sending…' : 'Send Another Link'}
             </MotionGhostButton>
           </div>
         </>

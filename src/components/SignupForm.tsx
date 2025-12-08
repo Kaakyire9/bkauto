@@ -149,32 +149,34 @@ export default function SignupForm() {
 
     setLoading(true)
     try {
-      // Attempt sign up. If your Supabase instance expects additional options,
-      // adjust the call accordingly.
-      // Many supabase-js versions accept the second param for user metadata.
-      // This code handles common v1/v2 variations gracefully.
-      // Try v2-ish signature first, fall back if it fails.
-      let result: any
-      try {
-        result = await (supabase.auth as any).signUp(
-          { email, password },
-          { data: { full_name: fullName } }
-        )
-      } catch (e) {
-        // fallback to simpler call
-        result = await (supabase.auth as any).signUp({ email, password })
-      }
+      // Sign up with Supabase
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName
+          }
+        }
+      })
 
-      const { error: signError } = result
-      if (signError) {
-        setError(signError.message || String(signError))
+      if (signUpError) {
+        setError(signUpError.message || 'Failed to create account')
+      } else if (data?.user) {
+        // Account created successfully
+        setMessage('Account created! Check your email to confirm your account.')
+        // Clear form
+        setFullName('')
+        setEmail('')
+        setPassword('')
+        setConfirm('')
+        // Redirect to sign-in after a short delay
+        setTimeout(() => router.push('/signin'), 2000)
       } else {
-        setMessage('Check your email to confirm your account (if email confirmations are enabled).')
-        // Navigate to sign-in after a short delay so user sees the message
-        setTimeout(() => router.push('/signin'), 1200)
+        setError('An unexpected error occurred. Please try again.')
       }
     } catch (e: any) {
-      setError(e?.message || String(e))
+      setError(e?.message || 'Failed to create account')
     } finally {
       setLoading(false)
     }

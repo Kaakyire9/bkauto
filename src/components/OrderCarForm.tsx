@@ -110,9 +110,9 @@ export default function OrderCarForm() {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000))
-      setMessage('Order placed successfully! Our team will contact you soon.')
+      setMessage('Order placed successfully! Redirecting to your dashboard...')
       setTimeout(() => {
-        router.push('/orders')
+        router.push('/dashboard')
       }, 2000)
     } catch (e: any) {
       setError(e?.message || 'Failed to place order')

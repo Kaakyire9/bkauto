@@ -1,0 +1,160 @@
+# Supabase Setup Guide for BK Auto Trading Dashboard
+
+## Required Tables
+
+To fully integrate the dashboard with Supabase, create the following tables in your Supabase project:
+
+### 1. `orders` Table
+
+This table stores all vehicle orders placed by users.
+
+**SQL to create the table:**
+
+```sql
+CREATE TABLE orders (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users ON DELETE CASCADE,
+  vehicle_type VARCHAR(50),
+  make VARCHAR(100),
+  model VARCHAR(100),
+  year INTEGER,
+  color VARCHAR(50),
+  condition VARCHAR(50),
+  budget VARCHAR(50),
+  priority VARCHAR(50),
+  timeline VARCHAR(50),
+  notes TEXT,
+  status VARCHAR(50) DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT status_check CHECK (status IN ('pending', 'in-progress', 'completed'))
+);
+
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_orders_status ON orders(status);
+```
+
+### 2. `saved_vehicles` Table
+
+This table stores vehicles saved by users.
+
+**SQL to create the table:**
+
+```sql
+CREATE TABLE saved_vehicles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users ON DELETE CASCADE,
+  vehicle_name VARCHAR(255),
+  vehicle_price VARCHAR(50),
+  vehicle_data JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT unique_saved_vehicle UNIQUE(user_id, vehicle_name)
+);
+
+CREATE INDEX idx_saved_vehicles_user_id ON saved_vehicles(user_id);
+```
+
+### 3. `user_profiles` Table (Optional, for extended user data)
+
+**SQL to create the table:**
+
+```sql
+CREATE TABLE user_profiles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users ON DELETE CASCADE,
+  avatar_url TEXT,
+  phone_number VARCHAR(20),
+  preferences JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+## Environment Variables
+
+Add these to your `.env.local`:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_RESET_PASSWORD_URL=https://yourdomain.com/reset-password
+```
+
+## Row Level Security (RLS)
+
+Enable Row Level Security for each table:
+
+**For `orders` table:**
+
+```sql
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own orders"
+  ON orders FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own orders"
+  ON orders FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own orders"
+  ON orders FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own orders"
+  ON orders FOR DELETE
+  USING (auth.uid() = user_id);
+```
+
+**For `saved_vehicles` table:**
+
+```sql
+ALTER TABLE saved_vehicles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own saved vehicles"
+  ON saved_vehicles FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own saved vehicles"
+  ON saved_vehicles FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own saved vehicles"
+  ON saved_vehicles FOR DELETE
+  USING (auth.uid() = user_id);
+```
+
+## Dashboard Features Now Connected
+
+✅ **Fetch User Profile**
+- Retrieves name from `user_metadata.full_name`
+- Displays member since date based on account creation
+- Shows email address
+
+✅ **Fetch Orders**
+- Retrieves all user orders
+- Calculates active and completed order counts
+- Displays last 3 orders in overview
+- Shows order status and vehicle details
+
+✅ **Fetch Saved Vehicles**
+- Counts total saved vehicles
+- Will display in saved vehicles tab (when table is populated)
+
+✅ **Profile Picture Upload**
+- Stores as data URL in component state
+- Can be extended to save to Supabase Storage
+
+## Next Steps
+
+1. Create all three tables in your Supabase project using the SQL above
+2. Enable Row Level Security as specified
+3. Add environment variables to `.env.local`
+4. Test the dashboard by creating orders through the order form
+5. Verify data appears in the dashboard
+
+## Troubleshooting
+
+- **No data showing?** Check that RLS policies are properly set
+- **Auth errors?** Verify Supabase URL and keys in environment variables
+- **Permission denied?** Ensure RLS policies match the user_id field
