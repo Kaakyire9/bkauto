@@ -9,79 +9,84 @@ interface ImageCropperModalProps {
 
 export default function ImageCropperModal({ imageFile, onCrop, onCancel }: ImageCropperModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const imageRef = useRef<HTMLImageElement>(null)
+  const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [scale, setScale] = useState(1)
   const [offsetX, setOffsetX] = useState(0)
   const [offsetY, setOffsetY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [isProcessing, setIsProcessing] = useState(false)
 
+  // Load image from file
   useEffect(() => {
-    // Load image
     const reader = new FileReader()
     reader.onload = (e) => {
-      if (imageRef.current) {
-        imageRef.current.src = e.target?.result as string
+      const img = new Image()
+      img.onload = () => {
+        setImage(img)
+        // Auto-fit the image in the crop circle
+        if (canvasRef.current) {
+          const canvas = canvasRef.current
+          const cropSize = Math.min(canvas.width, canvas.height) * 0.7
+          const imgSize = Math.max(img.width, img.height)
+          const fitScale = cropSize / imgSize
+          setScale(fitScale * 1.2) // Slightly larger than crop area
+        }
       }
+      img.src = e.target?.result as string
     }
     reader.readAsDataURL(imageFile)
   }, [imageFile])
 
+  // Draw on canvas whenever image or transforms change
   useEffect(() => {
-    if (!imageRef.current || !canvasRef.current) return
+    if (!image || !canvasRef.current) return
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const image = imageRef.current
-    const size = Math.min(canvas.width, canvas.height)
-    const cropSize = size * 0.8
+    const canvasSize = canvas.width
+    const centerX = canvasSize / 2
+    const centerY = canvasSize / 2
+    const radius = canvasSize * 0.35
 
     // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.clearRect(0, 0, canvasSize, canvasSize)
 
-    // Fill with dark background
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    // Fill background
+    ctx.fillStyle = '#010812'
+    ctx.fillRect(0, 0, canvasSize, canvasSize)
 
-    // Save context state
-    ctx.save()
+    // Calculate image dimensions with scale
+    const drawWidth = image.width * scale
+    const drawHeight = image.height * scale
 
-    // Draw circle crop area
-    const centerX = canvas.width / 2
-    const centerY = canvas.height / 2
-    const radius = cropSize / 2
+    // Calculate position with offset
+    const drawX = centerX - drawWidth / 2 + offsetX
+    const drawY = centerY - drawHeight / 2 + offsetY
 
-    // Clear circle area (make it transparent)
+    // Draw the full image first
+    ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight)
+
+    // Draw dark overlay everywhere
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
+    ctx.fillRect(0, 0, canvasSize, canvasSize)
+
+    // Cut out circle to reveal image underneath
+    ctx.globalCompositeOperation = 'destination-out'
     ctx.beginPath()
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
-    ctx.clip()
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fill()
 
-    // Draw image
-    if (image.complete) {
-      const imgWidth = image.naturalWidth
-      const imgHeight = image.naturalHeight
-      const scaledWidth = imgWidth * scale
-      const scaledHeight = imgHeight * scale
-
-      // Center image with offset
-      const drawX = centerX - scaledWidth / 2 + offsetX
-      const drawY = centerY - scaledHeight / 2 + offsetY
-
-      ctx.drawImage(image, drawX, drawY, scaledWidth, scaledHeight)
-    }
-
-    ctx.restore()
-
-    // Draw circle border
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.5)'
+    // Draw circle border on top
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.strokeStyle = '#D4AF37'
     ctx.lineWidth = 3
     ctx.beginPath()
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
     ctx.stroke()
-  }, [scale, offsetX, offsetY])
+  }, [image, scale, offsetX, offsetY])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true)
@@ -98,14 +103,65 @@ export default function ImageCropperModal({ imageFile, onCrop, onCancel }: Image
     setIsDragging(false)
   }
 
-  const handleCrop = () => {
-    if (!canvasRef.current) return
+  const handleCrop = async () => {
+    if (!image || !canvasRef.current) return
 
-    canvasRef.current.toBlob((blob) => {
-      if (blob) {
-        onCrop(blob)
-      }
-    }, 'image/jpeg', 0.95)
+    setIsProcessing(true)
+    try {
+      // Create a new canvas for the final cropped circular image
+      const outputCanvas = document.createElement('canvas')
+      const outputSize = 400
+      outputCanvas.width = outputSize
+      outputCanvas.height = outputSize
+      const outputCtx = outputCanvas.getContext('2d')
+      if (!outputCtx) return
+
+      const canvas = canvasRef.current
+      const canvasSize = canvas.width
+      const centerX = canvasSize / 2
+      const centerY = canvasSize / 2
+      const radius = canvasSize * 0.35
+
+      // Calculate what portion of the image is visible in the circle
+      const drawWidth = image.width * scale
+      const drawHeight = image.height * scale
+      const drawX = centerX - drawWidth / 2 + offsetX
+      const drawY = centerY - drawHeight / 2 + offsetY
+
+      // Calculate source rectangle (what's inside the circle)
+      const sourceX = (centerX - radius - drawX) / scale
+      const sourceY = (centerY - radius - drawY) / scale
+      const sourceSize = (radius * 2) / scale
+
+      // Create circular clip on output canvas
+      outputCtx.beginPath()
+      outputCtx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2)
+      outputCtx.clip()
+
+      // Draw the cropped portion
+      outputCtx.drawImage(
+        image,
+        sourceX,
+        sourceY,
+        sourceSize,
+        sourceSize,
+        0,
+        0,
+        outputSize,
+        outputSize
+      )
+
+      // Convert to blob and call onCrop
+      outputCanvas.toBlob((blob) => {
+        if (blob) {
+          onCrop(blob)
+        }
+        setIsProcessing(false)
+      }, 'image/jpeg', 0.95)
+    } catch (error) {
+      console.error('Crop error:', error)
+      setIsProcessing(false)
+    }
   }
 
   return (
@@ -114,21 +170,19 @@ export default function ImageCropperModal({ imageFile, onCrop, onCancel }: Image
         <h2 className="text-2xl font-bold text-[#D4AF37] mb-6">Crop Your Profile Picture</h2>
 
         {/* Canvas for preview */}
-        <div className="mb-6">
+        <div className="mb-6 flex justify-center">
           <canvas
             ref={canvasRef}
-            width={400}
-            height={400}
-            className="w-full border border-[#D4AF37]/20 rounded-2xl cursor-move bg-[#010812]"
+            width={500}
+            height={500}
+            className="border border-[#D4AF37]/20 rounded-2xl cursor-move"
+            style={{ maxWidth: '100%', height: 'auto' }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           />
         </div>
-
-        {/* Hidden image for reference */}
-        <img ref={imageRef} className="hidden" alt="crop" />
 
         {/* Controls */}
         <div className="space-y-6">
@@ -138,29 +192,31 @@ export default function ImageCropperModal({ imageFile, onCrop, onCancel }: Image
             </label>
             <input
               type="range"
-              min="0.5"
+              min="0.1"
               max="3"
-              step="0.1"
+              step="0.05"
               value={scale}
               onChange={(e) => setScale(parseFloat(e.target.value))}
               className="w-full h-2 bg-[#041123] rounded-lg appearance-none cursor-pointer accent-[#D4AF37] border border-[#D4AF37]/20"
             />
-            <p className="text-xs text-[#C6CDD1]/60 mt-2">Drag to move • Scroll to zoom</p>
+            <p className="text-xs text-[#C6CDD1]/60 mt-2">Drag image to reposition • Use slider to zoom</p>
           </div>
 
           {/* Buttons */}
           <div className="flex gap-4">
             <button
               onClick={onCancel}
-              className="flex-1 px-6 py-3 rounded-xl bg-[#041123]/50 border border-[#C6CDD1]/20 text-[#C6CDD1] hover:bg-[#041123]/80 transition-colors font-semibold"
+              disabled={isProcessing}
+              className="flex-1 px-6 py-3 rounded-xl bg-[#041123]/50 border border-[#C6CDD1]/20 text-[#C6CDD1] hover:bg-[#041123]/80 transition-colors font-semibold disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleCrop}
-              className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123] hover:from-[#E5C158] hover:to-[#FFED99] transition-all font-semibold shadow-lg hover:shadow-xl"
+              disabled={isProcessing}
+              className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123] hover:from-[#E5C158] hover:to-[#FFED99] transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save & Upload
+              {isProcessing ? 'Processing...' : 'Save & Upload'}
             </button>
           </div>
         </div>

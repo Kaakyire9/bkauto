@@ -189,7 +189,10 @@ export default function UserDashboard() {
   }
 
   const handleCropComplete = async (croppedBlob: Blob) => {
-    if (!userId) return
+    if (!userId) {
+      setUploadMessage({ type: 'error', text: 'User not authenticated' })
+      return
+    }
 
     setUploadingProfile(true)
     try {
@@ -198,35 +201,53 @@ export default function UserDashboard() {
         type: 'image/jpeg'
       })
 
+      console.log('Uploading avatar to Supabase Storage...', { userId, fileSize: croppedFile.size })
+
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase
         .storage
         .from('avatars')
         .upload(`${userId}/profile.jpg`, croppedFile, {
-          upsert: true
+          upsert: true,
+          contentType: 'image/jpeg'
         })
 
       if (uploadError) {
-        setUploadMessage({ type: 'error', text: 'Failed to upload image to storage' })
         console.error('Upload error:', uploadError)
+        setUploadMessage({ 
+          type: 'error', 
+          text: uploadError.message || 'Failed to upload image. Check if avatars bucket exists.' 
+        })
+        setShowCropper(false)
+        setSelectedFile(null)
         return
       }
+
+      console.log('Upload successful:', uploadData)
 
       // Save avatar URL to user_profiles table
       const { error: profileError } = await supabase
         .from('user_profiles')
         .upsert({
           user_id: userId,
-          avatar_url: uploadData.path
+          avatar_url: uploadData.path,
+          updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_id'
         })
 
       if (profileError) {
-        setUploadMessage({ type: 'error', text: 'Failed to save profile picture' })
-        console.error('Profile error:', profileError)
+        console.error('Profile save error:', profileError)
+        setUploadMessage({ 
+          type: 'error', 
+          text: profileError.message || 'Failed to save to database. Check if user_profiles table exists.' 
+        })
+        setShowCropper(false)
+        setSelectedFile(null)
         return
       }
+
+      console.log('Profile updated successfully')
 
       // Get the public URL
       const { data: { publicUrl } } = supabase
@@ -234,18 +255,25 @@ export default function UserDashboard() {
         .from('avatars')
         .getPublicUrl(uploadData.path)
 
+      console.log('Public URL:', publicUrl)
+
       setUser(prev => ({
         ...prev,
-        avatar: publicUrl
+        avatar: publicUrl + '?t=' + Date.now() // Add timestamp to force refresh
       }))
 
       setUploadMessage({ type: 'success', text: 'Profile picture updated successfully!' })
       setTimeout(() => setUploadMessage(null), 3000)
       setShowCropper(false)
       setSelectedFile(null)
-    } catch (error) {
-      setUploadMessage({ type: 'error', text: 'Failed to update profile picture' })
-      console.error('Error:', error)
+    } catch (error: any) {
+      console.error('Unexpected error:', error)
+      setUploadMessage({ 
+        type: 'error', 
+        text: error?.message || 'Failed to update profile picture' 
+      })
+      setShowCropper(false)
+      setSelectedFile(null)
     } finally {
       setUploadingProfile(false)
     }

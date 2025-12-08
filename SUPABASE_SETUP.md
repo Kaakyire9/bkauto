@@ -54,7 +54,7 @@ CREATE TABLE saved_vehicles (
 CREATE INDEX idx_saved_vehicles_user_id ON saved_vehicles(user_id);
 ```
 
-### 3. `user_profiles` Table (Optional, for extended user data)
+### 3. `user_profiles` Table (Required for profile pictures)
 
 **SQL to create the table:**
 
@@ -68,6 +68,22 @@ CREATE TABLE user_profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Enable RLS
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for user_profiles
+CREATE POLICY "Users can view their own profile"
+  ON user_profiles FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own profile"
+  ON user_profiles FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own profile"
+  ON user_profiles FOR UPDATE
+  USING (auth.uid() = user_id);
 ```
 
 ## Environment Variables
@@ -200,5 +216,33 @@ USING (bucket_id = 'avatars');
 - **No data showing?** Check that RLS policies are properly set
 - **Auth errors?** Verify Supabase URL and keys in environment variables
 - **Permission denied?** Ensure RLS policies match the user_id field
-- **Avatar not uploading?** Check that the avatars bucket is created and public
-- **Profile picture not loading?** Verify the avatar_url is saved in user_profiles table
+- **Avatar not uploading?** Check that:
+  1. The `avatars` bucket exists in Supabase Storage
+  2. The bucket is set to **Public**
+  3. Storage RLS policies are created (see above)
+  4. Check browser console for specific error messages
+- **Profile picture not loading?** Verify:
+  1. The `user_profiles` table exists
+  2. RLS policies are enabled on `user_profiles`
+  3. The avatar_url is saved correctly in the database
+  4. The browser console shows the public URL
+
+### Quick Checklist for Avatar Upload
+
+✅ **Storage Setup:**
+- [ ] Created `avatars` bucket (Storage → Create new bucket)
+- [ ] Set bucket to **Public**
+- [ ] Added 3 storage RLS policies (INSERT, UPDATE, SELECT)
+
+✅ **Database Setup:**
+- [ ] Created `user_profiles` table
+- [ ] Enabled RLS on `user_profiles`
+- [ ] Added 3 table RLS policies (SELECT, INSERT, UPDATE)
+
+✅ **Common Errors:**
+- `Bucket not found` → Create the avatars bucket
+- `new row violates row-level security` → Check RLS policies match auth.uid()
+- `relation "user_profiles" does not exist` → Run the CREATE TABLE SQL
+- `Permission denied for table user_profiles` → Enable RLS policies
+
+**Check browser console (F12) for detailed error messages!**
