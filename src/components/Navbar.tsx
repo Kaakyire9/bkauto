@@ -779,26 +779,7 @@ export default function Navbar() {
                           </div>
                       </div>
 
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.8 }}
-                        className="absolute left-6 right-6 text-center"
-                        style={{
-                          // place the badge above the safe-area inset on iOS
-                          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))'
-                        }}
-                      >
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs text-[#C6CDD1]/50"
-                          style={{
-                            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05), rgba(18, 87, 216, 0.05))',
-                            border: '1px solid rgba(212, 175, 55, 0.1)'
-                          }}
-                        >
-                          <div className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse" />
-                          <span>ESTD 2018 • Premium Service</span>
-                        </div>
-                      </motion.div>
+                      {/* Badge removed: 'ESTD 2018 • Premium Service' was intentionally removed from the menu */}
                     </div>
                   </div>
                 </FocusTrap>

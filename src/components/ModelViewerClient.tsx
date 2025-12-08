@@ -101,61 +101,121 @@ const ModelViewerClient = forwardRef<ModelViewerHandle, Props>(function ModelVie
     return () => { cancelled = true }
   }, [src])
 
-  const handle: ModelViewerHandle = {
-    setMaterialColor: async (materialName: string | null, hex: string) => {
+  // Debounce / batching support: coalesce rapid color change requests so
+  // we don't schedule multiple material updates inside the same Lit update
+  // cycle. Rapid swatch clicks will resolve once the last requested color
+  // has been applied.
+  const debounceMs = 120
+  const pendingRequestRef = useRef<{ materialName: string | null; hex: string } | null>(null)
+  const pendingResolversRef = useRef<Array<(v: boolean) => void>>([])
+  const pendingTimerRef = useRef<number | null>(null)
+
+  async function applyColor(materialName: string | null, hex: string): Promise<boolean> {
+    try {
+      const mv = mvRef.current
+      if (!mv) return false
+
+      // wait until model is loaded
+      if (!mv.model) {
+        await new Promise((res) => mv.addEventListener('load', res, { once: true }))
+      }
+
+      // Wait for Lit's update cycle to finish (if present) to avoid nested updates
       try {
-        const mv = mvRef.current
-        if (!mv) return false
-
-        // wait until model is loaded
-        if (!mv.model) {
-          await new Promise((res) => mv.addEventListener('load', res, { once: true }))
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        if (mv.updateComplete && typeof mv.updateComplete.then === 'function') {
+          // @ts-ignore
+          await mv.updateComplete
         }
+      } catch (e) {
+        // ignore
+      }
 
-        const model = mv.model
-        // try to access the Three.js scene
-        const scene = (model && (model.scene || model.gltfModel?.scene)) || null
-        if (!scene) return false
+      // Defer to next frame — reduces chance of mutating during an element update
+      await new Promise((res) => requestAnimationFrame(res))
 
-        let changed = false
-        scene.traverse((node: any) => {
-          if (!node.isMesh || !node.material) return
-          const mats = Array.isArray(node.material) ? node.material : [node.material]
-          mats.forEach((mat: any) => {
-            const nameMatches = !materialName || (mat.name && mat.name.toLowerCase().includes(materialName.toLowerCase()))
-            if (nameMatches) {
-              if (mat.color && typeof mat.color.set === 'function') {
-                try {
-                  mat.color.set(hex)
-                  mat.needsUpdate = true
-                  changed = true
-                } catch (e) {
-                  // ignore failures
-                }
-              } else if (mat.pbrMetallicRoughness && mat.pbrMetallicRoughness.baseColorFactor) {
-                // glTF style material; set baseColorFactor if available
-                try {
-                  // convert hex to normalized rgba
-                  const bigint = parseInt(hex.replace('#', ''), 16)
-                  const r = ((bigint >> 16) & 255) / 255
-                  const g = ((bigint >> 8) & 255) / 255
-                  const b = (bigint & 255) / 255
-                  mat.pbrMetallicRoughness.baseColorFactor[0] = r
-                  mat.pbrMetallicRoughness.baseColorFactor[1] = g
-                  mat.pbrMetallicRoughness.baseColorFactor[2] = b
-                  mat.pbrMetallicRoughness.baseColorFactor[3] = 1
-                  changed = true
-                } catch (e) {}
+      const model = mv.model
+      const scene = (model && (model.scene || model.gltfModel?.scene)) || null
+      if (!scene) return false
+
+      let changed = false
+      scene.traverse((node: any) => {
+        if (!node.isMesh || !node.material) return
+        const mats = Array.isArray(node.material) ? node.material : [node.material]
+        mats.forEach((mat: any) => {
+          const nameMatches = !materialName || (mat.name && mat.name.toLowerCase().includes(materialName.toLowerCase()))
+          if (nameMatches) {
+            if (mat.color && typeof mat.color.set === 'function') {
+              try {
+                mat.color.set(hex)
+                mat.needsUpdate = true
+                changed = true
+              } catch (e) {
+                // ignore failures
+              }
+            } else if (mat.pbrMetallicRoughness && mat.pbrMetallicRoughness.baseColorFactor) {
+              try {
+                const bigint = parseInt(hex.replace('#', ''), 16)
+                const r = ((bigint >> 16) & 255) / 255
+                const g = ((bigint >> 8) & 255) / 255
+                const b = (bigint & 255) / 255
+                mat.pbrMetallicRoughness.baseColorFactor[0] = r
+                mat.pbrMetallicRoughness.baseColorFactor[1] = g
+                mat.pbrMetallicRoughness.baseColorFactor[2] = b
+                mat.pbrMetallicRoughness.baseColorFactor[3] = 1
+                changed = true
+              } catch (e) {
+                // ignore
               }
             }
-          })
+          }
         })
+      })
 
-        return changed
-      } catch (e) {
-        console.warn('setMaterialColor failed', e)
-        return false
-      }
+      return changed
+    } catch (e) {
+      console.warn('applyColor failed', e)
+      return false
+    }
+  }
+
+  const handle: ModelViewerHandle = {
+    setMaterialColor: (materialName: string | null, hex: string) => {
+      // record the latest requested color (last-wins)
+      pendingRequestRef.current = { materialName, hex }
+
+      // return a promise that resolves when the scheduled apply runs
+      const p = new Promise<boolean>((resolve) => {
+        pendingResolversRef.current.push(resolve)
+
+        // reset timer
+        if (pendingTimerRef.current) {
+          try { window.clearTimeout(pendingTimerRef.current as any) } catch {}
+          pendingTimerRef.current = null
+        }
+
+        pendingTimerRef.current = window.setTimeout(async () => {
+          const req = pendingRequestRef.current
+          pendingRequestRef.current = null
+          pendingTimerRef.current = null
+
+          let result = false
+          try {
+            result = await applyColor(req?.materialName ?? null, req?.hex ?? '')
+          } catch (e) {
+            console.warn('batched applyColor failed', e)
+            result = false
+          }
+
+          const resolvers = pendingResolversRef.current.splice(0)
+          resolvers.forEach((r) => {
+            try { r(result) } catch {}
+          })
+        }, debounceMs) as unknown as number
+      })
+
+      return p
     }
   }
 
