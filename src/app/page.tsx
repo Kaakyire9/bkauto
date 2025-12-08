@@ -27,10 +27,12 @@ export default async function Page() {
   }
 
   return (
-    <div>
-      <Hero />
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-grow">
+        <Hero />
 
-      <HowItWorks />
+        <HowItWorks />
+      </main>
 
       <Footer />
     </div>

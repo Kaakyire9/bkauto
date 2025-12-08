@@ -293,16 +293,20 @@ export default function Navbar() {
               {!user ? (
                 <>
                   <Link href="/signin">
-                    <MotionGhostButton className="px-5 py-2.5 text-sm font-medium text-[#C6CDD1] hover:text-[#D4AF37] transition-all duration-300 relative group">
+                    <MotionGhostButton
+                      whileHover={{ scale: 1.03, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-5 py-2.5 text-sm font-medium text-white hover:text-[#D4AF37] transition-all duration-300 relative group"
+                    >
                       <span className="relative z-10">Sign in</span>
                       <div className="absolute inset-0 rounded-lg border border-[#D4AF37]/0 group-hover:border-[#D4AF37]/30 transition-all duration-300" />
                     </MotionGhostButton>
                   </Link>
                   <Link href="/signup">
                     <MotionPrimaryButton
-                      whileHover={{ scale: 1.02 }}
+                      whileHover={{ scale: 1.02, y: -2 }}
                       whileTap={{ scale: 0.98 }}
-                      className="relative px-6 py-2.5 text-sm font-semibold rounded-lg overflow-hidden group"
+                      className="relative px-6 py-2.5 text-sm font-semibold rounded-lg overflow-hidden group bg-deep-red hover:bg-cherry-red text-white"
                     >
                       <span className="relative z-10">Sign up</span>
                       <motion.div
@@ -688,19 +692,21 @@ export default function Navbar() {
                         ) : (
                           <div className="space-y-3 pt-6 border-t border-[#D4AF37]/10 mt-6">
                             <Link href="/signin" onClick={() => closeMenu()}>
-                              <MotionGhostButton className="block w-full text-center px-5 py-4 text-[#D4AF37] rounded-xl transition-all relative overflow-hidden group" style={{ border: '1px solid rgba(212, 175, 55, 0.3)' }}>
+                              <MotionGhostButton
+                                whileHover={{ scale: 1.03, y: -2 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="block w-full text-center px-5 py-4 text-white rounded-xl transition-all relative overflow-hidden group"
+                                style={{ border: '1px solid rgba(212, 175, 55, 0.3)' }}
+                              >
                                 <span className="relative z-10 font-medium">Sign in</span>
                                 <div className="absolute inset-0 bg-[#D4AF37]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </MotionGhostButton>
                             </Link>
                             <Link href="/signup" onClick={() => closeMenu()}>
                               <MotionPrimaryButton
+                                whileHover={{ scale: 1.03, y: -2 }}
                                 whileTap={{ scale: 0.98 }}
-                                className="w-full px-5 py-4 text-[#041123] rounded-xl font-semibold relative overflow-hidden"
-                                style={{
-                                  background: 'linear-gradient(135deg, #D4AF37 0%, #886f1d 100%)',
-                                  boxShadow: '0 4px 20px rgba(212, 175, 55, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)'
-                                }}
+                                className="w-full px-5 py-4 rounded-xl font-semibold relative overflow-hidden bg-deep-red hover:bg-cherry-red text-white"
                               >
                                 <span className="relative z-10">Create Account</span>
                                 <motion.div
