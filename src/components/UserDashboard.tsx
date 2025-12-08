@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabaseClient'
 import MotionPrimaryButton from './ui/MotionPrimaryButton'
 import MotionGhostButton from './ui/MotionGhostButton'
+import ImageCropperModal from './ImageCropperModal'
 
 interface UserStats {
   ordersPlaced: number
@@ -23,6 +24,7 @@ interface RecentOrder {
 export default function UserDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'vehicles' | 'settings'>('overview')
+  const [userId, setUserId] = useState<string | null>(null)
   const [user, setUser] = useState({
     name: 'Guest User',
     email: 'user@example.com',
@@ -33,6 +35,8 @@ export default function UserDashboard() {
   const [uploadingProfile, setUploadingProfile] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showCropper, setShowCropper] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [stats, setStats] = useState<UserStats>({
     ordersPlaced: 0,
     vehiclesSourced: 0,
@@ -56,6 +60,8 @@ export default function UserDashboard() {
         }
 
         const userId = session.user.id
+        setUserId(userId)
+        
         const email = session.user.email || 'user@example.com'
         const fullName = session.user.user_metadata?.full_name || 'Guest User'
         const createdAt = new Date(session.user.created_at)
@@ -67,6 +73,26 @@ export default function UserDashboard() {
           email: email,
           member_since: memberSince
         }))
+
+        // Fetch user profile including avatar from Supabase
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('avatar_url')
+          .eq('user_id', userId)
+          .single()
+
+        if (profileData?.avatar_url) {
+          // Get signed URL for the avatar
+          const { data: { publicUrl } } = supabase
+            .storage
+            .from('avatars')
+            .getPublicUrl(profileData.avatar_url)
+          
+          setUser(prev => ({
+            ...prev,
+            avatar: publicUrl
+          }))
+        }
 
         // Fetch orders from orders table
         const { data: ordersData, error: ordersError } = await supabase
@@ -142,7 +168,7 @@ export default function UserDashboard() {
     'completed': { bg: 'bg-[#10B981]/10', text: 'text-[#10B981]', border: 'border-[#10B981]/30' }
   }
 
-  const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfilePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -158,22 +184,76 @@ export default function UserDashboard() {
       return
     }
 
+    setSelectedFile(file)
+    setShowCropper(true)
+  }
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (!userId) return
+
     setUploadingProfile(true)
     try {
-      // Create a FileReader to convert the image to a data URL
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const imageData = event.target?.result as string
-        setUser(prev => ({ ...prev, avatar: imageData }))
-        setUploadMessage({ type: 'success', text: 'Profile picture updated successfully!' })
-        setTimeout(() => setUploadMessage(null), 3000)
+      // Create a file from the blob
+      const croppedFile = new File([croppedBlob], `avatar-${userId}-${Date.now()}.jpg`, {
+        type: 'image/jpeg'
+      })
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('avatars')
+        .upload(`${userId}/profile.jpg`, croppedFile, {
+          upsert: true
+        })
+
+      if (uploadError) {
+        setUploadMessage({ type: 'error', text: 'Failed to upload image to storage' })
+        console.error('Upload error:', uploadError)
+        return
       }
-      reader.readAsDataURL(file)
+
+      // Save avatar URL to user_profiles table
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .upsert({
+          user_id: userId,
+          avatar_url: uploadData.path
+        }, {
+          onConflict: 'user_id'
+        })
+
+      if (profileError) {
+        setUploadMessage({ type: 'error', text: 'Failed to save profile picture' })
+        console.error('Profile error:', profileError)
+        return
+      }
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase
+        .storage
+        .from('avatars')
+        .getPublicUrl(uploadData.path)
+
+      setUser(prev => ({
+        ...prev,
+        avatar: publicUrl
+      }))
+
+      setUploadMessage({ type: 'success', text: 'Profile picture updated successfully!' })
+      setTimeout(() => setUploadMessage(null), 3000)
+      setShowCropper(false)
+      setSelectedFile(null)
     } catch (error) {
-      setUploadMessage({ type: 'error', text: 'Failed to upload profile picture' })
+      setUploadMessage({ type: 'error', text: 'Failed to update profile picture' })
+      console.error('Error:', error)
     } finally {
       setUploadingProfile(false)
     }
+  }
+
+  const handleCropCancel = () => {
+    setShowCropper(false)
+    setSelectedFile(null)
   }
 
   return (
@@ -459,6 +539,15 @@ export default function UserDashboard() {
           )}
         </div>
       </div>
+
+      {/* Image Cropper Modal */}
+      {showCropper && selectedFile && (
+        <ImageCropperModal
+          imageFile={selectedFile}
+          onCrop={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   )
 }

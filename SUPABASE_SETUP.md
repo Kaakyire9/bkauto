@@ -145,16 +145,60 @@ CREATE POLICY "Users can delete their own saved vehicles"
 - Stores as data URL in component state
 - Can be extended to save to Supabase Storage
 
+## Storage Setup for Profile Pictures
+
+You also need to set up Supabase Storage for profile picture uploads.
+
+**Steps to create the avatars bucket:**
+
+1. Go to your Supabase project → **Storage**
+2. Click **"Create a new bucket"**
+3. Name it: `avatars`
+4. Check **"Public bucket"** (so avatars are publicly viewable)
+5. Click **"Create bucket"**
+
+**Enable RLS on Storage:**
+
+Go to **Storage** → **avatars** → **Policies** and add this policy:
+
+```sql
+-- Allow users to upload their own avatars
+CREATE POLICY "Users can upload their own avatars"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'avatars' 
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow users to update their own avatars
+CREATE POLICY "Users can update their own avatars"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'avatars' 
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow public access to avatars for reading
+CREATE POLICY "Public access to avatars"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+```
+
 ## Next Steps
 
 1. Create all three tables in your Supabase project using the SQL above
 2. Enable Row Level Security as specified
-3. Add environment variables to `.env.local`
-4. Test the dashboard by creating orders through the order form
-5. Verify data appears in the dashboard
+3. Create the avatars storage bucket
+4. Enable RLS policies on storage
+5. Add environment variables to `.env.local`
+6. Test the dashboard by creating orders through the order form
+7. Test profile picture upload with cropping
+8. Verify data appears in the dashboard
 
 ## Troubleshooting
 
 - **No data showing?** Check that RLS policies are properly set
 - **Auth errors?** Verify Supabase URL and keys in environment variables
 - **Permission denied?** Ensure RLS policies match the user_id field
+- **Avatar not uploading?** Check that the avatars bucket is created and public
+- **Profile picture not loading?** Verify the avatar_url is saved in user_profiles table
