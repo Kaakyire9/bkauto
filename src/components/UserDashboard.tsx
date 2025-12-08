@@ -68,14 +68,24 @@ export default function UserDashboard() {
           member_since: memberSince
         }))
 
-        // Fetch orders from orders table (you'll need to create this table in Supabase)
+        // Fetch orders from orders table
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
 
-        if (!ordersError && ordersData) {
+        if (ordersError) {
+          console.error('Error fetching orders:', ordersError)
+          // If table doesn't exist or RLS denied, set empty stats
+          setStats({
+            ordersPlaced: 0,
+            vehiclesSourced: 0,
+            activeOrders: 0,
+            savedVehicles: 0
+          })
+          setRecentOrders([])
+        } else if (ordersData) {
           // Calculate stats
           const activeCount = ordersData.filter((o: any) => o.status === 'in-progress' || o.status === 'pending').length
           const completedCount = ordersData.filter((o: any) => o.status === 'completed').length
@@ -97,19 +107,19 @@ export default function UserDashboard() {
               month: 'short', 
               day: 'numeric' 
             }),
-            amount: '$0' // Add budget field to orders table if needed
+            amount: order.budget || '$0'
           }))
           
           setRecentOrders(formattedOrders)
         }
 
         // Fetch saved vehicles (when table is created)
-        const { data: vehiclesData } = await supabase
+        const { data: vehiclesData, error: vehiclesError } = await supabase
           .from('saved_vehicles')
           .select('*')
           .eq('user_id', userId)
 
-        if (vehiclesData) {
+        if (!vehiclesError && vehiclesData) {
           setStats(prev => ({
             ...prev,
             savedVehicles: vehiclesData.length
@@ -124,7 +134,7 @@ export default function UserDashboard() {
     }
 
     fetchDashboardData()
-  }, [])
+  }, [router])
 
   const statusColors = {
     'pending': { bg: 'bg-[#F59E0B]/10', text: 'text-[#F59E0B]', border: 'border-[#F59E0B]/30' },

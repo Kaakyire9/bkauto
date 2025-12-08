@@ -1,6 +1,7 @@
 "use client"
 import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '../lib/supabaseClient'
 import MotionPrimaryButton from './ui/MotionPrimaryButton'
 import MotionGhostButton from './ui/MotionGhostButton'
 
@@ -108,14 +109,48 @@ export default function OrderCarForm() {
 
     setLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        setError('You must be signed in to place an order')
+        router.push('/signin')
+        return
+      }
+
+      // Save order to Supabase
+      const { error: insertError } = await supabase
+        .from('orders')
+        .insert([
+          {
+            user_id: session.user.id,
+            vehicle_type: data.vehicleType,
+            make: data.make,
+            model: data.model,
+            year: parseInt(data.year),
+            color: data.color,
+            condition: data.condition,
+            budget: data.budget,
+            priority: data.priority,
+            timeline: data.timeline,
+            notes: data.notes,
+            status: 'pending'
+          }
+        ])
+
+      if (insertError) {
+        setError(insertError.message || 'Failed to save order to database')
+        console.error('Order insert error:', insertError)
+        return
+      }
+
       setMessage('Order placed successfully! Redirecting to your dashboard...')
       setTimeout(() => {
         router.push('/dashboard')
       }, 2000)
     } catch (e: any) {
       setError(e?.message || 'Failed to place order')
+      console.error('Order submission error:', e)
     } finally {
       setLoading(false)
     }
