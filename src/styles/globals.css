@@ -60,3 +60,99 @@ html, body {
   padding-left: calc(var(--safe-area-inset-left) + 1rem);
   padding-right: calc(var(--safe-area-inset-right) + 1rem);
 }
+
+/* Subtle shimmer for premium headlines */
+@keyframes bk-shimmer {
+  0% { background-position: -150% 0; }
+  100% { background-position: 150% 0; }
+}
+
+.shimmer-text {
+  background-image: linear-gradient(90deg, rgba(212,175,55,0.95) 0%, rgba(212,175,55,0.45) 25%, rgba(198,205,209,0.05) 50%, rgba(212,175,55,0.45) 75%, rgba(212,175,55,0.95) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: bk-shimmer 8s linear infinite;
+  opacity: 0.98;
+}
+
+.shimmer-subtle {
+  animation-duration: 10s;
+  opacity: 0.9;
+}
+
+/* Respect user's reduced motion preference: disable shimmer */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-text,
+  .shimmer-subtle {
+    animation: none !important;
+    background-position: 50% 0 !important;
+    -webkit-background-clip: none !important;
+    background-clip: none !important;
+    color: var(--brand-gold) !important; /* fall back to solid gold text */
+    opacity: 1 !important;
+  }
+}
+
+/* Popover entry animations */
+@keyframes popover-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popover-right {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes popover-left {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.popover-anim-up {
+  animation: popover-up 180ms cubic-bezier(.2,.9,.2,1) both;
+}
+.popover-anim-right {
+  animation: popover-right 180ms cubic-bezier(.2,.9,.2,1) both;
+}
+.popover-anim-left {
+  animation: popover-left 180ms cubic-bezier(.2,.9,.2,1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover-anim-up, .popover-anim-right, .popover-anim-left {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes underline-in {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.underline-on-hover {
+  position: relative;
+  display: inline-block;
+}
+
+.underline-on-hover::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background-color: currentColor;
+  transition: width 200ms ease-out;
+}
+
+.underline-on-hover:hover::after {
+  width: 100%;
+}
