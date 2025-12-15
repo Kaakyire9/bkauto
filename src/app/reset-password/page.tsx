@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function Page() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#010812] via-[#041123] to-[#0a1b2e]">
+    <div className="min-h-screen flex flex-col bg-[#6B667A]">
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {/* Top-right golden glow */}

@@ -29,8 +29,8 @@ export default function HowItWorks() {
       description: "Make a refundable deposit to activate your order. Your funds are held securely in escrow, protecting both you and our network of trusted sellers.",
       icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
       features: ["Refundable deposit", "Escrow protection", "Instant activation"],
-      color: "#1257D8",
-      gradient: "from-[#1257D8] to-[#0c3d99]"
+      color: "#6B667A",
+      gradient: "from-[#6B667A] to-[#4d4a5a]"
     },
     {
       number: "03",
@@ -101,7 +101,7 @@ export default function HowItWorks() {
         <motion.div
           className="absolute bottom-1/4 -right-1/4 w-[500px] h-[500px] rounded-full opacity-[0.008] blur-3xl"
           style={{
-            background: 'radial-gradient(circle, #1257D8 0%, transparent 70%)'
+            background: 'radial-gradient(circle, #6B667A 0%, transparent 70%)'
           }}
           animate={{
             scale: [1, 1.3, 1],
@@ -152,8 +152,7 @@ export default function HowItWorks() {
             <span 
               className="text-sm font-bold tracking-wider"
               style={{
-                color: '#D4AF37',
-                textShadow: '0 2px 15px rgba(0, 0, 0, 0.9), 0 0 30px rgba(212, 175, 55, 0.5)'
+                color: '#D4AF37'
               }}
             >
               THE JOURNEY
@@ -166,8 +165,7 @@ export default function HowItWorks() {
               background: 'linear-gradient(135deg, #FFFFFF 0%, #D4AF37 50%, #FFFFFF 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              textShadow: '0 4px 30px rgba(0, 0, 0, 0.9)'
+              backgroundClip: 'text'
             }}
           >
             How It Works
@@ -176,8 +174,7 @@ export default function HowItWorks() {
           <p 
             className="text-xl leading-relaxed max-w-3xl mx-auto font-medium"
             style={{
-              color: '#E8E8E8',
-              textShadow: '0 2px 20px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 0, 0, 0.7)'
+              color: '#E8E8E8'
             }}
           >
             From vision to reality in five seamless steps. Experience automotive luxury procurement redefined.
@@ -201,9 +198,9 @@ export default function HowItWorks() {
         <div className="hidden lg:block relative">
           {/* Connecting Line */}
           <div className="absolute top-1/2 left-0 right-0 h-0.5 -translate-y-1/2 z-0">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/20 via-[#1257D8]/20 to-[#D4AF37]/20" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/20 via-[#6B667A]/20 to-[#D4AF37]/20" />
             <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-[#D4AF37] via-[#1257D8] to-[#0FA662]"
+              className="absolute inset-0 bg-gradient-to-r from-[#D4AF37] via-[#6B667A] to-[#0FA662]"
               initial={{ scaleX: 0 }}
               whileInView={{ scaleX: 1 }}
               viewport={{ once: true }}
@@ -318,8 +315,7 @@ export default function HowItWorks() {
                       <h3 
                         className="text-xl font-bold"
                         style={{ 
-                          color: activeStep === index ? step.color : '#FFFFFF',
-                          textShadow: '0 2px 20px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 0, 0, 0.5)'
+                          color: activeStep === index ? step.color : '#FFFFFF'
                         }}
                       >
                         {step.title}
@@ -327,8 +323,7 @@ export default function HowItWorks() {
                       <p 
                         className="text-sm font-semibold"
                         style={{
-                          color: '#D4AF37',
-                          textShadow: '0 2px 15px rgba(0, 0, 0, 0.9)'
+                          color: '#D4AF37'
                         }}
                       >
                         {step.subtitle}
@@ -336,8 +331,7 @@ export default function HowItWorks() {
                       <p 
                         className="text-sm leading-relaxed font-medium" 
                         style={{ 
-                          color: '#E8E8E8',
-                          textShadow: '0 2px 15px rgba(0, 0, 0, 0.9)' 
+                          color: '#E8E8E8'
                         }}
                       >
                         {step.description}
@@ -353,8 +347,7 @@ export default function HowItWorks() {
                             transition={{ delay: i * 0.1 }}
                             className="flex items-center gap-2 text-xs font-semibold"
                             style={{ 
-                              color: '#E0E0E0',
-                              textShadow: '0 2px 10px rgba(0, 0, 0, 0.9)' 
+                              color: '#E0E0E0'
                             }}
                           >
                             <div 
@@ -499,8 +492,7 @@ export default function HowItWorks() {
                   <h3 
                     className="text-2xl font-bold mb-2"
                     style={{ 
-                      color: step.color,
-                      textShadow: '0 2px 20px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 0, 0, 0.5)'
+                      color: step.color
                     }}
                   >
                     {step.title}
@@ -508,8 +500,7 @@ export default function HowItWorks() {
                   <p 
                     className="text-sm font-semibold mb-3"
                     style={{
-                      color: '#D4AF37',
-                      textShadow: '0 2px 15px rgba(0, 0, 0, 0.9)'
+                      color: '#D4AF37'
                     }}
                   >
                     {step.subtitle}
@@ -517,8 +508,7 @@ export default function HowItWorks() {
                   <p 
                     className="text-sm leading-relaxed mb-4 font-medium" 
                     style={{ 
-                      color: '#E8E8E8',
-                      textShadow: '0 2px 15px rgba(0, 0, 0, 0.9)' 
+                      color: '#E8E8E8'
                     }}
                   >
                     {step.description}
@@ -531,8 +521,7 @@ export default function HowItWorks() {
                         key={i}
                         className="flex items-center gap-2 text-xs font-semibold"
                         style={{ 
-                          color: '#E0E0E0',
-                          textShadow: '0 2px 10px rgba(0, 0, 0, 0.9)' 
+                          color: '#E0E0E0'
                         }}
                       >
                         <div 
@@ -581,14 +570,13 @@ export default function HowItWorks() {
             <div className="absolute top-0 left-0 w-20 h-20 border-t-2 border-l-2 border-[#D4AF37]/50 rounded-tl-3xl" />
             <div className="absolute bottom-0 right-0 w-20 h-20 border-b-2 border-r-2 border-[#D4AF37]/50 rounded-br-3xl" />
 
-            <h3 
-              className="text-3xl md:text-4xl font-bold mb-4"
+            <h3
+              className="text-5xl md:text-6xl font-black mb-6"
               style={{
                 background: 'linear-gradient(135deg, #FFFFFF 0%, #D4AF37 50%, #FFFFFF 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                textShadow: '0 4px 30px rgba(0, 0, 0, 0.9)'
+                backgroundClip: 'text'
               }}
             >
               Ready to Start Your Journey?
@@ -596,8 +584,7 @@ export default function HowItWorks() {
             <p 
               className="text-lg mb-8 max-w-2xl mx-auto font-medium"
               style={{
-                color: '#E8E8E8',
-                textShadow: '0 2px 20px rgba(0, 0, 0, 0.9)'
+                color: '#E8E8E8'
               }}
             >
               Join hundreds of satisfied clients who found their dream vehicles through our premium service.

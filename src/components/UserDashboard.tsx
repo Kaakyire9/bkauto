@@ -285,7 +285,7 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#010812] via-[#041123] to-[#0a1b2e]">
+    <div className="w-full min-h-screen bg-[#6B667A]">
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div
@@ -298,7 +298,7 @@ export default function UserDashboard() {
         <div
           className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-15"
           style={{
-            background: 'radial-gradient(circle, #6B667A 0%, transparent 70%)',
+            background: 'radial-gradient(circle, #FFFFFF 0%, transparent 70%)',
             filter: 'blur(80px)'
           }}
         ></div>

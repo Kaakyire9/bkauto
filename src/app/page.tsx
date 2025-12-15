@@ -1,7 +1,9 @@
 import { createServerActionClient } from './serverActionsHelper'
 import { cookies } from 'next/headers'
 import Hero from '../components/Hero'
-import HowItWorks from '../components/HowItWorks'
+import HowItWorksSimple from '../components/HowItWorksSimple'
+import WhyChoose from '../components/WhyChoose'
+import Testimonials from '../components/Testimonials'
 import Footer from '../components/Footer'
 
 export default async function Page() {
@@ -31,7 +33,11 @@ export default async function Page() {
       <main className="flex-grow">
         <Hero />
 
-        <HowItWorks />
+        <HowItWorksSimple />
+
+        <WhyChoose />
+
+        <Testimonials />
       </main>
 
       <Footer />

@@ -199,7 +199,7 @@ export default function AdminDashboard() {
 
   const statusColors = {
     'pending': { bg: 'bg-[#F59E0B]/10', text: 'text-[#F59E0B]', border: 'border-[#F59E0B]/30', glow: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]' },
-    'in-progress': { bg: 'bg-[#1257D8]/10', text: 'text-[#1257D8]', border: 'border-[#1257D8]/30', glow: 'shadow-[0_0_20px_rgba(18,87,216,0.3)]' },
+    'in-progress': { bg: 'bg-[#6B667A]/10', text: 'text-[#6B667A]', border: 'border-[#6B667A]/30', glow: 'shadow-[0_0_20px_rgba(18,87,216,0.3)]' },
     'completed': { bg: 'bg-[#10B981]/10', text: 'text-[#10B981]', border: 'border-[#10B981]/30', glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]' }
   }
 
@@ -226,11 +226,11 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#010812] via-[#041123] to-[#0a1b2e]">
+    <div className="w-full min-h-screen bg-[#6B667A]">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-20 blur-3xl bg-gradient-to-r from-[#D4AF37] to-[#FFE17B]"></div>
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-15 blur-3xl bg-gradient-to-r from-[#1257D8] to-[#10B981]"></div>
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-15 blur-3xl bg-gradient-to-r from-[#FFFFFF] to-[#10B981]"></div>
         <div className="absolute top-1/2 left-1/2 w-96 h-96 rounded-full opacity-10 blur-3xl bg-gradient-to-r from-[#E11D48] to-[#F59E0B]"></div>
       </div>
 
@@ -301,7 +301,7 @@ export default function AdminDashboard() {
                   className={`px-6 py-3 rounded-xl font-semibold transition-all ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123] shadow-lg shadow-[#D4AF37]/30'
-                      : 'bg-[#041123]/30 text-[#C6CDD1] border border-[#D4AF37]/10 hover:bg-[#041123]/50'
+                      : 'bg-[#041123]/30 text-[#C6CDD1] border border-[#6B667A]/20 hover:bg-[#041123]/50'
                   }`}
                 >
                   <span className="mr-2">{tab.icon}</span>
@@ -322,7 +322,7 @@ export default function AdminDashboard() {
                 {[
                   { label: 'Total Orders', value: stats.totalOrders, icon: '📦', color: 'from-[#D4AF37] to-[#FFE17B]' },
                   { label: 'Pending', value: stats.pendingOrders, icon: '⏳', color: 'from-[#F59E0B] to-[#FCD34D]' },
-                  { label: 'In Progress', value: stats.inProgressOrders, icon: '🔄', color: 'from-[#1257D8] to-[#60A5FA]' },
+                  { label: 'In Progress', value: stats.inProgressOrders, icon: '🔄', color: 'from-[#6B667A] to-[#60A5FA]' },
                   { label: 'Completed', value: stats.completedOrders, icon: '✅', color: 'from-[#10B981] to-[#34D399]' },
                   { label: 'New Today', value: stats.newOrdersToday, icon: '🆕', color: 'from-[#E11D48] to-[#FB7185]' },
                   { label: 'Revenue', value: stats.totalRevenue, icon: '💰', color: 'from-[#8B5CF6] to-[#A78BFA]' }
@@ -360,14 +360,14 @@ export default function AdminDashboard() {
                   {orders.slice(0, 5).map((order) => (
                     <div
                       key={order.id}
-                      className="flex items-center justify-between p-4 rounded-xl bg-[#010812]/50 border border-[#D4AF37]/10 hover:border-[#D4AF37]/30 transition-all cursor-pointer"
+                      className="flex items-center justify-between p-4 rounded-xl bg-[#010812]/50 border border-[#6B667A]/20 hover:border-[#D4AF37]/30 transition-all cursor-pointer"
                       onClick={() => {
                         setSelectedOrder(order)
                         setShowOrderDetail(true)
                       }}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37]/20 to-[#1257D8]/20 border border-[#D4AF37]/30 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D4AF37]/20 to-[#6B667A]/20 border border-[#D4AF37]/30 flex items-center justify-center">
                           <span className="text-xl">🚗</span>
                         </div>
                         <div>
@@ -410,7 +410,7 @@ export default function AdminDashboard() {
                         className={`px-6 py-3 rounded-xl font-semibold transition-all ${
                           statusFilter === status
                             ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123]'
-                            : 'bg-[#010812]/50 text-[#C6CDD1] border border-[#D4AF37]/10 hover:bg-[#010812]/80'
+                            : 'bg-[#010812]/50 text-[#C6CDD1] border border-[#6B667A]/20 hover:bg-[#010812]/80'
                         }`}
                       >
                         {status === 'all' ? 'All' : status.replace('-', ' ')}
@@ -438,7 +438,7 @@ export default function AdminDashboard() {
                     </thead>
                     <tbody>
                       {filteredOrders.map((order) => (
-                        <tr key={order.id} className="border-b border-[#D4AF37]/10 hover:bg-[#010812]/30 transition-colors">
+                        <tr key={order.id} className="border-b border-[#6B667A]/20 hover:bg-[#010812]/30 transition-colors">
                           <td className="px-6 py-4 text-sm text-[#C6CDD1] font-mono">#{order.id.slice(0, 8)}</td>
                           <td className="px-6 py-4">
                             <div>
@@ -606,7 +606,7 @@ export default function AdminDashboard() {
                       className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
                         selectedOrder.status === status
                           ? `${statusColors[status].bg} ${statusColors[status].text} border ${statusColors[status].border} ${statusColors[status].glow}`
-                          : 'bg-[#041123]/50 text-[#C6CDD1] border border-[#D4AF37]/10 hover:bg-[#041123]/80'
+                          : 'bg-[#041123]/50 text-[#C6CDD1] border border-[#6B667A]/20 hover:bg-[#041123]/80'
                       }`}
                     >
                       {status.replace('-', ' ').toUpperCase()}
@@ -621,3 +621,4 @@ export default function AdminDashboard() {
     </div>
   )
 }
+

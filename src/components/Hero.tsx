@@ -167,22 +167,11 @@ export default function Hero() {
                 <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold leading-[1.1] mb-6">
                   <span 
                     className="block bg-gradient-to-r from-[#D4AF37] via-[#C6CDD1] to-[#D4AF37] bg-clip-text text-transparent"
-                    style={{ 
-                      textShadow: '0 0 60px rgba(212, 175, 55, 0.3)',
-                      backgroundSize: '200% auto',
-                      animation: 'shimmer 8s linear infinite'
-                    }}
                   >
                     Find Your
                   </span>
                   <span 
                     className="block bg-gradient-to-r from-[#C6CDD1] via-[#D4AF37] to-[#1257D8] bg-clip-text text-transparent mt-2"
-                    style={{ 
-                      textShadow: '0 0 60px rgba(212, 175, 55, 0.3)',
-                      backgroundSize: '200% auto',
-                      animation: 'shimmer 8s linear infinite',
-                      animationDelay: '1s'
-                    }}
                   >
                     Dream Car
                   </span>

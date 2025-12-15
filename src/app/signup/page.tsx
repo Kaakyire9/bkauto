@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function Page() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#041123] to-[#061423]">
+    <div className="min-h-screen flex flex-col bg-[#6B667A]">
       <div className="flex-grow flex items-center justify-center py-16">
 
         {/* FULL WIDTH GRID (FIXED) */}
@@ -17,10 +17,9 @@ export default function Page() {
           <div className="hidden md:flex flex-col items-start gap-6">
             <h2
               className="text-5xl font-extrabold text-[#D4AF37] leading-tight"
-              style={{ textShadow: '0 8px 30px rgba(0,0,0,0.6)' }}
             >
-              <span className="block shimmer-text shimmer-subtle">Welcome to</span>
-              <span className="block shimmer-text">BK Auto Trading</span>
+              <span className="block">Welcome to</span>
+              <span className="block">BK Auto Trading</span>
             </h2>
 
             <p className="text-lg text-[#C6CDD1]/80 max-w-md">
