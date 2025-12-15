@@ -164,7 +164,7 @@ export default function UserDashboard() {
 
   const statusColors = {
     'pending': { bg: 'bg-[#F59E0B]/10', text: 'text-[#F59E0B]', border: 'border-[#F59E0B]/30' },
-    'in-progress': { bg: 'bg-[#1257D8]/10', text: 'text-[#1257D8]', border: 'border-[#1257D8]/30' },
+    'in-progress': { bg: 'bg-[#6B667A]/10', text: 'text-[#6B667A]', border: 'border-[#6B667A]/30' },
     'completed': { bg: 'bg-[#10B981]/10', text: 'text-[#10B981]', border: 'border-[#10B981]/30' }
   }
 
@@ -298,7 +298,7 @@ export default function UserDashboard() {
         <div
           className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-15"
           style={{
-            background: 'radial-gradient(circle, #1257D8 0%, transparent 70%)',
+            background: 'radial-gradient(circle, #6B667A 0%, transparent 70%)',
             filter: 'blur(80px)'
           }}
         ></div>
@@ -315,13 +315,13 @@ export default function UserDashboard() {
 
       <div className="relative z-10">
         {/* Header */}
-        <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border-b border-[#D4AF37]/10 sticky top-0 z-50">
+        <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border-b border-[#6B667A]/20 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-6 py-8">
             <div className="flex items-center justify-between gap-8">
               <div className="flex items-center gap-6">
                 {/* Profile Picture */}
                 <div className="relative group">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-[#1257D8]/20 border-2 border-[#D4AF37]/30 flex items-center justify-center overflow-hidden">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-[#6B667A]/20 border-2 border-[#D4AF37]/30 flex items-center justify-center overflow-hidden">
                     {user.avatar ? (
                       <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
@@ -373,13 +373,13 @@ export default function UserDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             {[
               { label: 'Orders Placed', value: stats.ordersPlaced, icon: '📦', color: '#D4AF37' },
-              { label: 'Vehicles Sourced', value: stats.vehiclesSourced, icon: '🚗', color: '#1257D8' },
+              { label: 'Vehicles Sourced', value: stats.vehiclesSourced, icon: '🚗', color: '#6B667A' },
               { label: 'Active Orders', value: stats.activeOrders, icon: '⚡', color: '#F59E0B' },
               { label: 'Saved Vehicles', value: stats.savedVehicles, icon: '❤️', color: '#C21E3A' }
             ].map((stat, i) => (
               <div
                 key={i}
-                className="bg-[rgba(4,17,35,0.6)] backdrop-blur-sm border border-[#D4AF37]/10 rounded-2xl p-6 hover:border-[#D4AF37]/30 transition-all group cursor-pointer"
+                className="bg-[rgba(4,17,35,0.6)] backdrop-blur-sm border border-[#6B667A]/20 rounded-2xl p-6 hover:border-[#D4AF37]/40 transition-all group cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-4">
                   <span className="text-3xl">{stat.icon}</span>
@@ -392,7 +392,7 @@ export default function UserDashboard() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-8 border-b border-[#D4AF37]/10 overflow-x-auto">
+          <div className="flex gap-2 mb-8 border-b border-[#6B667A]/20 overflow-x-auto">
             {[
               { id: 'overview', label: 'Overview', icon: '📊' },
               { id: 'orders', label: 'My Orders', icon: '📋' },
@@ -418,7 +418,7 @@ export default function UserDashboard() {
           {activeTab === 'overview' && (
             <div className="space-y-8">
               {/* Recent Orders */}
-              <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#D4AF37]/10 rounded-2xl p-8">
+              <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-8 hover:border-[#D4AF37]/40 transition-all">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-black text-[#D4AF37]">Recent Orders</h2>
                   <MotionGhostButton onClick={() => setActiveTab('orders')} className="text-sm px-4 py-2 rounded-lg text-white">
@@ -427,7 +427,7 @@ export default function UserDashboard() {
                 </div>
                 <div className="space-y-4">
                   {recentOrders.map((order, i) => (
-                    <div key={i} className="bg-[#041123]/40 border border-[#D4AF37]/10 rounded-xl p-5 flex items-center justify-between group hover:border-[#D4AF37]/30 transition-all">
+                    <div key={i} className="bg-[#041123]/40 border border-[#6B667A]/20 rounded-xl p-5 flex items-center justify-between group hover:border-[#D4AF37]/40 transition-all">
                       <div className="flex-1">
                         <p className="font-semibold text-white mb-1">{order.vehicle}</p>
                         <p className="text-xs text-[#C6CDD1]/60">{order.id} • {order.date}</p>
@@ -456,7 +456,7 @@ export default function UserDashboard() {
                   <button
                     key={i}
                     onClick={() => router.push(action.action)}
-                    className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#D4AF37]/10 rounded-2xl p-6 hover:border-[#D4AF37]/40 transition-all text-left group"
+                    className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-6 hover:border-[#D4AF37]/40 transition-all text-left group"
                   >
                     <div className="text-3xl mb-3">{action.icon}</div>
                     <h3 className="font-black text-[#D4AF37] mb-2">{action.title}</h3>
@@ -471,11 +471,11 @@ export default function UserDashboard() {
           )}
 
           {activeTab === 'orders' && (
-            <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#D4AF37]/10 rounded-2xl p-8">
+            <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-8 hover:border-[#D4AF37]/40 transition-all">
               <h2 className="text-xl font-black text-[#D4AF37] mb-6">All Orders</h2>
               <div className="space-y-4">
                 {recentOrders.map((order, i) => (
-                  <div key={i} className="bg-[#041123]/40 border border-[#D4AF37]/10 rounded-xl p-5 flex items-center justify-between group hover:border-[#D4AF37]/30 transition-all cursor-pointer">
+                  <div key={i} className="bg-[#041123]/40 border border-[#6B667A]/20 rounded-xl p-5 flex items-center justify-between group hover:border-[#D4AF37]/40 transition-all cursor-pointer">
                     <div className="flex-1">
                       <p className="font-semibold text-white mb-1">{order.vehicle}</p>
                       <p className="text-xs text-[#C6CDD1]/60">{order.id} • {order.date}</p>
@@ -493,7 +493,7 @@ export default function UserDashboard() {
           )}
 
           {activeTab === 'vehicles' && (
-            <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#D4AF37]/10 rounded-2xl p-8">
+            <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-8">
               <h2 className="text-xl font-black text-[#D4AF37] mb-6">Saved Vehicles ({stats.savedVehicles})</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[
@@ -504,9 +504,9 @@ export default function UserDashboard() {
                   { name: '2023 Range Rover Sport', price: '$95,000', saved: '1 month ago' },
                   { name: '2024 Tesla Model S Plaid', price: '$125,000', saved: '1 month ago' }
                 ].map((vehicle, i) => (
-                  <div key={i} className="bg-[#041123]/40 border border-[#D4AF37]/10 rounded-xl p-5 group hover:border-[#D4AF37]/30 transition-all cursor-pointer">
-                    <div className="w-full h-40 bg-gradient-to-br from-[#D4AF37]/20 to-[#1257D8]/20 rounded-lg mb-4 flex items-center justify-center">
-                      <span className="text-4xl">🚗</span>
+                  <div key={i} className="bg-[#041123]/40 border border-[#6B667A]/20 rounded-xl p-5 group hover:border-[#D4AF37]/40 transition-all cursor-pointer">
+                    <div key={i} className="w-full h-40 bg-gradient-to-br from-[#D4AF37]/20 to-[#6B667A]/20 rounded-lg mb-4 flex items-center justify-center">
+                      <span className="text-4xl">🚙</span>
                     </div>
                     <h3 className="font-semibold text-white mb-2">{vehicle.name}</h3>
                     <div className="flex items-center justify-between">
@@ -524,7 +524,7 @@ export default function UserDashboard() {
 
           {activeTab === 'settings' && (
             <div className="space-y-6">
-              <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#D4AF37]/10 rounded-2xl p-8">
+              <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-8 hover:border-[#D4AF37]/40 transition-all">
                 <h2 className="text-xl font-black text-[#D4AF37] mb-6">Account Settings</h2>
                 <div className="space-y-6">
                   <div>
@@ -535,7 +535,7 @@ export default function UserDashboard() {
                     <label className="text-sm font-medium text-[#D4AF37] mb-2 block">Email Address</label>
                     <input type="email" defaultValue={user.email} className="w-full px-4 py-2 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white" disabled />
                   </div>
-                  <div className="pt-4 border-t border-[#D4AF37]/10">
+                  <div className="pt-4 border-t border-[#6B667A]/20">
                     <p className="text-sm text-[#C6CDD1]/60 mb-4">Member Since: {user.member_since}</p>
                     <p className="text-sm text-[#C6CDD1]/60">Tier: <span className="text-[#D4AF37] font-semibold">{user.tier}</span></p>
                   </div>
@@ -546,7 +546,7 @@ export default function UserDashboard() {
                 </div>
               </div>
 
-              <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#D4AF37]/10 rounded-2xl p-8">
+              <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-8">
                 <h2 className="text-lg font-black text-[#D4AF37] mb-4">Preferences</h2>
                 <div className="space-y-4">
                   <label className="flex items-center gap-3 cursor-pointer">
@@ -579,3 +579,4 @@ export default function UserDashboard() {
     </div>
   )
 }
+
