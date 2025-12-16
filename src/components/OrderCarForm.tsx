@@ -146,6 +146,21 @@ export default function OrderCarForm() {
         console.error('Order insert error:', insertError)
         return
       }
+      
+        // Create notification for the user: order pending
+        try {
+          await supabase
+            .from('notifications')
+            .insert({
+              user_id: session.user.id,
+              title: 'Order Received',
+              body: 'Your order is pending. We have started processing it.',
+              type: 'info'
+            })
+        } catch (e) {
+          // Non-blocking if notification insert fails
+          console.warn('Notification insert failed', e)
+        }
 
       setMessage('Order placed successfully! Redirecting to your dashboard...')
       setTimeout(() => {

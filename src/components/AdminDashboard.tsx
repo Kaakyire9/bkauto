@@ -196,6 +196,32 @@ export default function AdminDashboard() {
       return
     }
 
+    // Notify order owner about status change
+    try {
+      const targetOrder = orders.find(o => o.id === orderId)
+      if (targetOrder) {
+        const title = newStatus === 'pending' ? 'Order Pending'
+                      : newStatus === 'in-progress' ? 'Order In Progress'
+                      : 'Order Completed'
+        const body = newStatus === 'pending'
+          ? 'Your order has been received and is pending.'
+          : newStatus === 'in-progress'
+          ? 'We are now sourcing your vehicle. Stay tuned!'
+          : 'Your order has been completed. Thank you!'
+
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: targetOrder.user_id,
+            title,
+            body,
+            type: newStatus === 'completed' ? 'success' : 'info'
+          })
+      }
+    } catch (e) {
+      console.warn('Notification insert failed on status update', e)
+    }
+
     // Refresh data
     fetchDashboardData()
     setShowOrderDetail(false)
