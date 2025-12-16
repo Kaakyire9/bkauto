@@ -286,7 +286,7 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#6B667A]">
+    <div className="w-full min-h-screen bg-[#6B667A] pt-20 md:pt-0">
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div

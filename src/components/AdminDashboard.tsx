@@ -230,7 +230,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#6B667A]">
+    <div className="w-full min-h-screen bg-[#6B667A] pt-20 md:pt-0">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-20 blur-3xl bg-gradient-to-r from-[#D4AF37] to-[#FFE17B]"></div>
