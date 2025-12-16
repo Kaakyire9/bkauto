@@ -22,9 +22,11 @@ interface RecentOrder {
   amount: string
 }
 
-export default function UserDashboard() {
+type Tab = 'overview' | 'orders' | 'vehicles' | 'settings'
+
+export default function UserDashboard({ initialTab = 'overview' }: { initialTab?: Tab }) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'vehicles' | 'settings'>('overview')
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [userId, setUserId] = useState<string | null>(null)
   const [user, setUser] = useState({
     name: 'Guest User',
@@ -33,6 +35,13 @@ export default function UserDashboard() {
     tier: 'Premium',
     avatar: null as string | null
   })
+  const [profileForm, setProfileForm] = useState({ name: '', email: '' })
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirm: '' })
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [uploadingProfile, setUploadingProfile] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -74,6 +83,7 @@ export default function UserDashboard() {
           email: email,
           member_since: memberSince
         }))
+        setProfileForm({ name: fullName, email })
 
         // Fetch user profile including avatar from Supabase
         const { data: profileData } = await supabase
@@ -528,23 +538,142 @@ export default function UserDashboard() {
               <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-8 hover:border-[#D4AF37]/40 transition-all">
                 <h2 className="text-xl font-black text-[#D4AF37] mb-6">Account Settings</h2>
                 <div className="space-y-6">
+                  {profileMessage && (
+                    <div className={`text-sm px-3 py-2 rounded-lg ${profileMessage.type === 'success' ? 'text-emerald-300 bg-emerald-900/30 border border-emerald-500/30' : 'text-rose-300 bg-rose-900/30 border border-rose-500/30'}`}>{profileMessage.text}</div>
+                  )}
                   <div>
                     <label className="text-sm font-medium text-[#D4AF37] mb-2 block">Full Name</label>
-                    <input type="text" defaultValue={user.name} className="w-full px-4 py-2 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white" disabled />
+                    <input
+                      type="text"
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white"
+                    />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-[#D4AF37] mb-2 block">Email Address</label>
-                    <input type="email" defaultValue={user.email} className="w-full px-4 py-2 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white" disabled />
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white"
+                    />
                   </div>
                   <div className="pt-4 border-t border-[#6B667A]/20">
                     <p className="text-sm text-[#C6CDD1]/60 mb-4">Member Since: {user.member_since}</p>
                     <p className="text-sm text-[#C6CDD1]/60">Tier: <span className="text-[#D4AF37] font-semibold">{user.tier}</span></p>
                   </div>
                   <div className="pt-4 flex gap-3">
-                    <MotionPrimaryButton className="px-6 py-2 rounded-lg">Update Profile</MotionPrimaryButton>
-                    <MotionGhostButton className="px-6 py-2 rounded-lg text-white">Change Password</MotionGhostButton>
+                    <MotionPrimaryButton onClick={async () => {
+                      try {
+                        setProfileMessage(null)
+                        setProfileSaving(true)
+                        const payload: { email?: string; data?: Record<string, any> } = {}
+                        if (profileForm.email && profileForm.email !== user.email) payload.email = profileForm.email
+                        const fullName = profileForm.name?.trim()
+                        if (fullName && fullName !== user.name) payload.data = { ...(payload.data||{}), full_name: fullName }
+                        if (!payload.email && !payload.data) {
+                          setProfileMessage({ type: 'error', text: 'No changes to update.' })
+                        } else {
+                          const { data, error } = await supabase.auth.updateUser(payload)
+                          if (error) {
+                            setProfileMessage({ type: 'error', text: error.message || 'Failed to update profile' })
+                          } else {
+                            // Email updates may require verification; Supabase returns user with email_change if enabled
+                            const updatedEmail = payload.email ? payload.email : user.email
+                            const updatedName = fullName || user.name
+                            setUser(prev => ({ ...prev, email: updatedEmail, name: updatedName }))
+                            
+                            // Also sync full_name to user_profiles table
+                            if (userId && fullName && fullName !== user.name) {
+                              await supabase
+                                .from('user_profiles')
+                                .upsert({
+                                  user_id: userId,
+                                  full_name: fullName,
+                                  updated_at: new Date().toISOString()
+                                }, { onConflict: 'user_id' })
+                                .select()
+                            }
+                            
+                            setProfileMessage({ type: 'success', text: payload.email ? 'Profile updated. Check your email to confirm the change.' : 'Profile updated successfully.' })
+                          }
+                        }
+                      } catch (e: any) {
+                        setProfileMessage({ type: 'error', text: e?.message || 'Unexpected error' })
+                      } finally {
+                        setProfileSaving(false)
+                      }
+                    }} className="px-6 py-2 rounded-lg" disabled={profileSaving}>
+                      {profileSaving ? 'Updating…' : 'Update Profile'}
+                    </MotionPrimaryButton>
+                    <MotionGhostButton onClick={() => setShowPasswordForm(v => !v)} className="px-6 py-2 rounded-lg text-white">
+                      {showPasswordForm ? 'Cancel' : 'Change Password'}
+                    </MotionGhostButton>
                   </div>
                 </div>
+                {showPasswordForm && (
+                  <div className="mt-6 pt-6 border-t border-[#6B667A]/20">
+                    <h3 className="text-lg font-black text-[#D4AF37] mb-4">Change Password</h3>
+                    {passwordMessage && (
+                      <div className={`text-sm px-3 py-2 rounded-lg ${passwordMessage.type === 'success' ? 'text-emerald-300 bg-emerald-900/30 border border-emerald-500/30' : 'text-rose-300 bg-rose-900/30 border border-rose-500/30'}`}>{passwordMessage.text}</div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-[#D4AF37] mb-2 block">New Password</label>
+                        <input
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-[#D4AF37] mb-2 block">Confirm Password</label>
+                        <input
+                          type="password"
+                          value={passwordForm.confirm}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <MotionPrimaryButton
+                        onClick={async () => {
+                          try {
+                            setPasswordMessage(null)
+                            if (!passwordForm.newPassword || passwordForm.newPassword.length < 8) {
+                              setPasswordMessage({ type: 'error', text: 'Password must be at least 8 characters.' })
+                              return
+                            }
+                            if (passwordForm.newPassword !== passwordForm.confirm) {
+                              setPasswordMessage({ type: 'error', text: 'Passwords do not match.' })
+                              return
+                            }
+                            setPasswordSaving(true)
+                            const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword })
+                            if (error) {
+                              setPasswordMessage({ type: 'error', text: error.message || 'Failed to change password' })
+                            } else {
+                              setPasswordMessage({ type: 'success', text: 'Password updated successfully.' })
+                              setPasswordForm({ newPassword: '', confirm: '' })
+                              setShowPasswordForm(false)
+                            }
+                          } catch (e: any) {
+                            setPasswordMessage({ type: 'error', text: e?.message || 'Unexpected error' })
+                          } finally {
+                            setPasswordSaving(false)
+                          }
+                        }}
+                        className="px-6 py-2 rounded-lg"
+                        disabled={passwordSaving}
+                      >
+                        {passwordSaving ? 'Saving…' : 'Save Password'}
+                      </MotionPrimaryButton>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-8">

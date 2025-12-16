@@ -27,6 +27,8 @@ export default function Navbar() {
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
   const [overlayActive, setOverlayActive] = useState(false)
+  const accountButtonRef = useRef<HTMLButtonElement | null>(null)
+  const accountMenuRef = useRef<HTMLDivElement | null>(null)
 
   const ModelViewerClient = dynamic(() => import('./ModelViewerClient'), {
     ssr: false,
@@ -125,6 +127,28 @@ export default function Navbar() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Close account menu on outside click (desktop)
+  useEffect(() => {
+    if (!accountOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node
+      const btn = accountButtonRef.current
+      const menu = accountMenuRef.current
+      if (menu && menu.contains(target)) return
+      if (btn && btn.contains(target)) return
+      setAccountOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside, true)
+    return () => document.removeEventListener('mousedown', handleClickOutside, true)
+  }, [accountOpen])
+
+  // Close account menu on route change
+  useEffect(() => {
+    if (accountOpen) setAccountOpen(false)
+    // also ensure mobile menu closes on navigation
+    if (open) setOpen(false)
+  }, [pathname])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -327,6 +351,7 @@ export default function Navbar() {
                     aria-expanded={accountOpen}
                     aria-controls="account-menu"
                     aria-haspopup="true"
+                    ref={accountButtonRef}
                     style={{
                       background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(18, 87, 216, 0.1))',
                       border: '1px solid rgba(212, 175, 55, 0.2)'
@@ -375,6 +400,7 @@ export default function Navbar() {
                                 id="account-menu"
                                 role="menu"
                                 className="absolute right-0 mt-3 w-72 rounded-2xl overflow-hidden z-[110]"
+                                ref={accountMenuRef}
                           style={{
                             background: 'linear-gradient(135deg, #041123 0%, #0a1a2e 100%)',
                             border: '1px solid rgba(212, 175, 55, 0.2)',
@@ -407,6 +433,7 @@ export default function Navbar() {
                                 <Link
                                   href={item.href}
                                   className="flex items-center gap-3 px-4 py-3 text-sm text-[#C6CDD1]/80 hover:text-[#D4AF37] rounded-xl transition-all group relative overflow-hidden"
+                                  onClick={() => setAccountOpen(false)}
                                 >
                                   <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
