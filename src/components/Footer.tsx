@@ -171,7 +171,7 @@ export default function Footer() {
               className="text-[#C6CDD1] leading-relaxed mb-6 max-w-md font-medium"
               style={{ textShadow: '0 2px 10px rgba(0, 0, 0, 0.9)' }}
             >
-              Your trusted partner in premium automotive sourcing. We connect you with exclusive vehicles from our global network of verified sellers.
+              Your trusted partner in premium automotive sourcing. We source exclusive vehicles from our global network of verified sellers.
             </p>
 
             {/* Trust Badges */}

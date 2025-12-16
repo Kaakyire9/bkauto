@@ -76,7 +76,7 @@ export default function WhyChoose() {
                 alt="Luxury car showcase"
                 fill
                 className="object-cover"
-                sizes="100vw"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 80vw"
                 priority
               />
             </div>

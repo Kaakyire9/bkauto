@@ -140,7 +140,7 @@ export default function Hero() {
             playsInline
             aria-hidden="true"
           >
-            <source src="/videos/hero-video.mp4" type="video/mp4" />
+            <source src="/videos/hero-video1.mp4" type="video/mp4" />
           </video>
         )}
       </motion.div>

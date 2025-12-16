@@ -121,8 +121,20 @@ export default function AdminDashboard() {
         return
       }
 
+      console.log('Fetched orders:', ordersData)
+      
+      // Filter out any orders with null/undefined status and log them
+      const ordersWithStatus = (ordersData || []).filter(order => {
+        if (!order.status) {
+          console.warn('Order has no status:', order.id, order)
+          return false
+        }
+        return true
+      })
+      
+      console.log(`Total orders: ${ordersData?.length}, Orders with status: ${ordersWithStatus.length}`)
       // Orders already have contact info (first_name, last_name, phone)
-      setOrders(ordersData || [])
+      setOrders(ordersWithStatus)
 
       // Calculate stats
       const today = new Date()
@@ -452,8 +464,8 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-lg text-xs font-bold ${statusColors[order.status].bg} ${statusColors[order.status].text} border ${statusColors[order.status].border}`}>
-                              {order.status.replace('-', ' ')}
+                            <span className={`px-3 py-1 rounded-lg text-xs font-bold ${statusColors[order.status]?.bg || 'bg-gray-500/10'} ${statusColors[order.status]?.text || 'text-gray-500'} border ${statusColors[order.status]?.border || 'border-gray-500/30'}`}>
+                              {(order.status || 'unknown').replace('-', ' ').toUpperCase()}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm text-[#C6CDD1]/60">{new Date(order.created_at).toLocaleDateString()}</td>
