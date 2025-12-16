@@ -54,6 +54,11 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
     savedVehicles: 0
   })
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
+  const [orders, setOrders] = useState<any[]>([])
+  const [editingOrder, setEditingOrder] = useState<any | null>(null)
+  const [editForm, setEditForm] = useState({ make: '', model: '', year: '', budget: '' })
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [acting, setActing] = useState(false)
 
   // Fetch user data and orders on mount
   useEffect(() => {
@@ -110,6 +115,7 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
           .from('orders')
           .select('*')
           .eq('user_id', userId)
+          .is('deleted_at', null)
           .order('created_at', { ascending: false })
 
         if (ordersError) {
@@ -123,6 +129,7 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
           })
           setRecentOrders([])
         } else if (ordersData) {
+          setOrders(ordersData)
           // Calculate stats
           const activeCount = ordersData.filter((o: any) => o.status === 'in-progress' || o.status === 'pending').length
           const completedCount = ordersData.filter((o: any) => o.status === 'completed').length
@@ -177,6 +184,83 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
     'pending': { bg: 'bg-[#F59E0B]/10', text: 'text-[#F59E0B]', border: 'border-[#F59E0B]/30' },
     'in-progress': { bg: 'bg-[#6B667A]/10', text: 'text-[#6B667A]', border: 'border-[#6B667A]/30' },
     'completed': { bg: 'bg-[#10B981]/10', text: 'text-[#10B981]', border: 'border-[#10B981]/30' }
+  }
+
+  const beginEdit = (order: any) => {
+    setEditingOrder(order)
+    setEditForm({
+      make: order.make || '',
+      model: order.model || '',
+      year: String(order.year || ''),
+      budget: String(order.budget || '')
+    })
+    setActionMessage(null)
+  }
+
+  const submitEdit = async () => {
+    if (!editingOrder || !userId) return
+    try {
+      setActing(true)
+      setActionMessage(null)
+      // Only allow editing pending orders
+      if (editingOrder.status !== 'pending') {
+        setActionMessage({ type: 'error', text: 'Only pending orders can be edited.' })
+        return
+      }
+      const payload: any = {
+        make: editForm.make.trim(),
+        model: editForm.model.trim(),
+        budget: editForm.budget.trim() || null,
+        updated_at: new Date().toISOString()
+      }
+      if (editForm.year) payload.year = Number(editForm.year)
+      const { error } = await supabase
+        .from('orders')
+        .update(payload)
+        .eq('id', editingOrder.id)
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+      if (error) {
+        setActionMessage({ type: 'error', text: error.message || 'Failed to update order.' })
+      } else {
+        setActionMessage({ type: 'success', text: 'Order updated.' })
+        // Refresh local state
+        const updated = orders.map(o => o.id === editingOrder.id ? { ...o, ...payload } : o)
+        setOrders(updated)
+        setEditingOrder(null)
+      }
+    } catch (e: any) {
+      setActionMessage({ type: 'error', text: e?.message || 'Unexpected error.' })
+    } finally {
+      setActing(false)
+    }
+  }
+
+  const cancelOrder = async (order: any) => {
+    if (!userId) return
+    const confirmed = window.confirm('Cancel this order? This cannot be undone.')
+    if (!confirmed) return
+    try {
+      setActing(true)
+      setActionMessage(null)
+      // Soft delete: set deleted_at for pending orders owned by user
+      const { error } = await supabase
+        .from('orders')
+        .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', order.id)
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+      if (error) {
+        setActionMessage({ type: 'error', text: error.message || 'Failed to cancel order.' })
+      } else {
+        setActionMessage({ type: 'success', text: 'Order cancelled.' })
+        setOrders(prev => prev.filter(o => o.id !== order.id))
+      }
+    } catch (e: any) {
+      setActionMessage({ type: 'error', text: e?.message || 'Unexpected error.' })
+    } finally {
+      setActing(false)
+    }
   }
 
   const handleProfilePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -485,18 +569,46 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
             <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border border-[#6B667A]/20 rounded-2xl p-8 hover:border-[#D4AF37]/40 transition-all">
               <h2 className="text-xl font-black text-[#D4AF37] mb-6">All Orders</h2>
               <div className="space-y-4">
-                {recentOrders.map((order, i) => (
-                  <div key={i} className="bg-[#041123]/40 border border-[#6B667A]/20 rounded-xl p-5 flex items-center justify-between group hover:border-[#D4AF37]/40 transition-all cursor-pointer">
-                    <div className="flex-1">
-                      <p className="font-semibold text-white mb-1">{order.vehicle}</p>
-                      <p className="text-xs text-[#C6CDD1]/60">{order.id} • {order.date}</p>
+                {orders.map((order: any) => (
+                  <div key={order.id} className="bg-[#041123]/40 border border-[#6B667A]/20 rounded-xl p-5 group hover:border-[#D4AF37]/40 transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-semibold text-white mb-1">{order.make} {order.model} {order.year}</p>
+                        <p className="text-xs text-[#C6CDD1]/60">#ORD-{order.id?.slice(0,8)?.toUpperCase()} • {new Date(order.created_at).toLocaleDateString('en-US', {year:'numeric', month:'short', day:'numeric'})}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[order.status as keyof typeof statusColors]?.bg || ''} ${statusColors[order.status as keyof typeof statusColors]?.text || ''} ${statusColors[order.status as keyof typeof statusColors]?.border || ''}`}>
+                          {(order.status || 'pending').replace('-', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        </span>
+                        <span className="font-black text-[#D4AF37]">{order.budget ? `$${order.budget}` : '$0'}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusColors[order.status].bg} ${statusColors[order.status].text} ${statusColors[order.status].border}`}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </span>
-                      <span className="font-black text-[#D4AF37]">{order.amount}</span>
-                    </div>
+
+                    {order.status === 'pending' && (
+                      <div className="mt-4 w-full flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+                        <MotionPrimaryButton onClick={() => beginEdit(order)} className="w-full sm:w-auto px-4 py-3 rounded-lg">Edit</MotionPrimaryButton>
+                        <MotionGhostButton onClick={() => cancelOrder(order)} className="w-full sm:w-auto px-4 py-3 rounded-lg text-white">Cancel</MotionGhostButton>
+                      </div>
+                    )}
+
+                    {editingOrder?.id === order.id && (
+                      <div className="mt-4 p-4 rounded-xl border border-[#D4AF37]/20 bg-[#041123]/30">
+                        <h3 className="text-sm font-black text-[#D4AF37] mb-3">Edit Order (Pending)</h3>
+                        {actionMessage && (
+                          <div className={`text-xs px-3 py-2 rounded-lg ${actionMessage.type === 'success' ? 'text-emerald-300 bg-emerald-900/30 border border-emerald-500/30' : 'text-rose-300 bg-rose-900/30 border border-rose-500/30'}`}>{actionMessage.text}</div>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                          <input value={editForm.make} onChange={(e)=>setEditForm({...editForm, make:e.target.value})} placeholder="Make" className="w-full px-4 py-3 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white" />
+                          <input value={editForm.model} onChange={(e)=>setEditForm({...editForm, model:e.target.value})} placeholder="Model" className="w-full px-4 py-3 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white" />
+                          <input value={editForm.year} onChange={(e)=>setEditForm({...editForm, year:e.target.value})} placeholder="Year" className="w-full px-4 py-3 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white" />
+                          <input value={editForm.budget} onChange={(e)=>setEditForm({...editForm, budget:e.target.value})} placeholder="Budget" className="w-full px-4 py-3 rounded-lg bg-[#041123]/40 border border-[#D4AF37]/15 text-white" />
+                        </div>
+                        <div className="mt-3 w-full flex flex-col sm:flex-row gap-3">
+                          <MotionPrimaryButton onClick={submitEdit} disabled={acting} className="w-full sm:w-auto px-4 py-3 rounded-lg">{acting ? 'Saving…' : 'Save Changes'}</MotionPrimaryButton>
+                          <MotionGhostButton onClick={()=>{setEditingOrder(null); setActionMessage(null);}} className="w-full sm:w-auto px-4 py-3 rounded-lg text-white">Close</MotionGhostButton>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
