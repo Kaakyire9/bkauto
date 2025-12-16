@@ -243,6 +243,7 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
     try {
       setActing(true)
       setActionMessage(null)
+      const shortId = order.id?.slice(0, 8)?.toUpperCase()
       // Soft delete: set deleted_at for pending orders owned by user
       const { error } = await supabase
         .from('orders')
@@ -253,7 +254,7 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
       if (error) {
         setActionMessage({ type: 'error', text: error.message || 'Failed to cancel order.' })
       } else {
-        setActionMessage({ type: 'success', text: 'Order cancelled.' })
+        setActionMessage({ type: 'success', text: `Order #${shortId} cancelled.` })
         setOrders(prev => prev.filter(o => o.id !== order.id))
       }
     } catch (e: any) {
