@@ -253,9 +253,11 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
         .eq('status', 'pending')
       if (error) {
         setActionMessage({ type: 'error', text: error.message || 'Failed to cancel order.' })
+        alert(`Failed to cancel order: ${error.message || 'Unknown error'}`)
       } else {
         setActionMessage({ type: 'success', text: `Order #${shortId} cancelled.` })
         setOrders(prev => prev.filter(o => o.id !== order.id))
+        alert(`Order #${shortId} has been cancelled successfully.`)
       }
     } catch (e: any) {
       setActionMessage({ type: 'error', text: e?.message || 'Unexpected error.' })
