@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabaseClient'
+import Footer from './Footer'
 
 interface Order {
   id: string
@@ -621,6 +622,8 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient'
 import MotionPrimaryButton from './ui/MotionPrimaryButton'
 import MotionGhostButton from './ui/MotionGhostButton'
 import ImageCropperModal from './ImageCropperModal'
+import Footer from './Footer'
 
 interface UserStats {
   ordersPlaced: number
@@ -316,7 +317,7 @@ export default function UserDashboard() {
       <div className="relative z-10">
         {/* Header */}
         <div className="bg-[rgba(4,17,35,0.6)] backdrop-blur-xl border-b border-[#6B667A]/20 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="px-6 py-8">
             <div className="flex items-center justify-between gap-8">
               <div className="flex items-center gap-6">
                 {/* Profile Picture */}
@@ -368,7 +369,7 @@ export default function UserDashboard() {
         </div>
 
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="px-6 py-12">
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             {[
@@ -576,6 +577,8 @@ export default function UserDashboard() {
           onCancel={handleCropCancel}
         />
       )}
+
+      <Footer />
     </div>
   )
 }
