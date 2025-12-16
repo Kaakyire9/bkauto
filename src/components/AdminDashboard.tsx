@@ -16,10 +16,11 @@ interface Order {
   priority: string
   timeline: string
   notes: string
+  first_name?: string
+  last_name?: string
+  phone?: string
   status: 'pending' | 'in-progress' | 'completed'
   created_at: string
-  user_email?: string
-  user_name?: string
 }
 
 interface DashboardStats {
@@ -120,31 +121,20 @@ export default function AdminDashboard() {
         return
       }
 
-      // Fetch user emails for each order
-      const ordersWithUserData = await Promise.all(
-        (ordersData || []).map(async (order) => {
-          const { data: userData } = await supabase.auth.admin.getUserById(order.user_id)
-          return {
-            ...order,
-            user_email: userData?.user?.email || 'Unknown',
-            user_name: userData?.user?.user_metadata?.full_name || 'Unknown User'
-          }
-        })
-      )
-
-      setOrders(ordersWithUserData)
+      // Orders already have contact info (first_name, last_name, phone)
+      setOrders(ordersData || [])
 
       // Calculate stats
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      const pendingCount = ordersWithUserData.filter(o => o.status === 'pending').length
-      const inProgressCount = ordersWithUserData.filter(o => o.status === 'in-progress').length
-      const completedCount = ordersWithUserData.filter(o => o.status === 'completed').length
-      const newToday = ordersWithUserData.filter(o => new Date(o.created_at) >= today).length
+      const pendingCount = (ordersData || []).filter(o => o.status === 'pending').length
+      const inProgressCount = (ordersData || []).filter(o => o.status === 'in-progress').length
+      const completedCount = (ordersData || []).filter(o => o.status === 'completed').length
+      const newToday = (ordersData || []).filter(o => new Date(o.created_at) >= today).length
 
       setStats({
-        totalOrders: ordersWithUserData.length,
+        totalOrders: (ordersData || []).length,
         pendingOrders: pendingCount,
         inProgressOrders: inProgressCount,
         completedOrders: completedCount,
@@ -172,8 +162,9 @@ export default function AdminDashboard() {
       filtered = filtered.filter(order =>
         order.make?.toLowerCase().includes(query) ||
         order.model?.toLowerCase().includes(query) ||
-        order.user_email?.toLowerCase().includes(query) ||
-        order.user_name?.toLowerCase().includes(query) ||
+        order.first_name?.toLowerCase().includes(query) ||
+        order.last_name?.toLowerCase().includes(query) ||
+        order.phone?.toLowerCase().includes(query) ||
         order.id.toLowerCase().includes(query)
       )
     }
@@ -372,7 +363,7 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p className="text-[#D4AF37] font-semibold">{order.make} {order.model} {order.year}</p>
-                          <p className="text-xs text-[#C6CDD1]/60">{order.user_name} • {new Date(order.created_at).toLocaleDateString()}</p>
+                          <p className="text-xs text-[#C6CDD1]/60">{order.first_name} {order.last_name} • {new Date(order.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
@@ -442,8 +433,8 @@ export default function AdminDashboard() {
                           <td className="px-6 py-4 text-sm text-[#C6CDD1] font-mono">#{order.id.slice(0, 8)}</td>
                           <td className="px-6 py-4">
                             <div>
-                              <p className="text-sm text-[#D4AF37] font-semibold">{order.user_name}</p>
-                              <p className="text-xs text-[#C6CDD1]/60">{order.user_email}</p>
+                              <p className="text-sm text-[#D4AF37] font-semibold">{order.first_name} {order.last_name}</p>
+                              <p className="text-xs text-[#C6CDD1]/60">{order.phone}</p>
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -536,11 +527,11 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-[#C6CDD1]/60 mb-1">Name</p>
-                    <p className="text-sm text-[#C6CDD1]">{selectedOrder.user_name}</p>
+                    <p className="text-sm text-[#C6CDD1]">{selectedOrder.first_name} {selectedOrder.last_name}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-[#C6CDD1]/60 mb-1">Email</p>
-                    <p className="text-sm text-[#C6CDD1]">{selectedOrder.user_email}</p>
+                    <p className="text-xs text-[#C6CDD1]/60 mb-1">Phone</p>
+                    <p className="text-sm text-[#C6CDD1]">{selectedOrder.phone}</p>
                   </div>
                 </div>
               </div>

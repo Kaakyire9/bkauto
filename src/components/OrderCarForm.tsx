@@ -134,6 +134,9 @@ export default function OrderCarForm() {
             priority: data.priority,
             timeline: data.timeline,
             notes: data.notes,
+            first_name: data.firstName,
+            last_name: data.lastName,
+            phone: data.phone,
             status: 'pending'
           }
         ])
