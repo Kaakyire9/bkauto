@@ -22,6 +22,7 @@ interface Order {
   phone?: string
   status: 'pending' | 'in-progress' | 'completed'
   created_at: string
+  deleted_at?: string | null
 }
 
 interface DashboardStats {
@@ -31,6 +32,7 @@ interface DashboardStats {
   completedOrders: number
   totalRevenue: string
   newOrdersToday: number
+  cancelledOrders: number
 }
 
 export default function AdminDashboard() {
@@ -43,7 +45,8 @@ export default function AdminDashboard() {
     inProgressOrders: 0,
     completedOrders: 0,
     totalRevenue: '$0',
-    newOrdersToday: 0
+    newOrdersToday: 0,
+    cancelledOrders: 0
   })
   const [orders, setOrders] = useState<Order[]>([])
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([])
@@ -53,6 +56,9 @@ export default function AdminDashboard() {
   const [showOrderDetail, setShowOrderDetail] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
+  const [includeCancelled, setIncludeCancelled] = useState(false)
+  const [showOnlyCancelled, setShowOnlyCancelled] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => {
     checkAdminAccess()
@@ -62,11 +68,11 @@ export default function AdminDashboard() {
     if (isAdmin) {
       fetchDashboardData()
     }
-  }, [isAdmin])
+  }, [isAdmin, includeCancelled])
 
   useEffect(() => {
     filterOrders()
-  }, [orders, searchQuery, statusFilter])
+  }, [orders, searchQuery, statusFilter, showOnlyCancelled])
 
   const checkAdminAccess = async () => {
     try {
@@ -125,34 +131,38 @@ export default function AdminDashboard() {
       console.log('Fetched orders:', ordersData)
       
       // Filter out any orders with null/undefined status and log them
-      const ordersWithStatus = (ordersData || []).filter(order => {
+      const baseOrders = (ordersData || []).filter(order => {
         if (!order.status) {
           console.warn('Order has no status:', order.id, order)
           return false
         }
         return true
       })
-      
-      console.log(`Total orders: ${ordersData?.length}, Orders with status: ${ordersWithStatus.length}`)
+      const visibleOrders = includeCancelled ? baseOrders : baseOrders.filter(o => !o.deleted_at)
+
+      console.log(`Total orders: ${ordersData?.length}, Visible orders: ${visibleOrders.length}`)
       // Orders already have contact info (first_name, last_name, phone)
-      setOrders(ordersWithStatus)
+      setOrders(visibleOrders as Order[])
 
       // Calculate stats
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      const pendingCount = (ordersData || []).filter(o => o.status === 'pending').length
-      const inProgressCount = (ordersData || []).filter(o => o.status === 'in-progress').length
-      const completedCount = (ordersData || []).filter(o => o.status === 'completed').length
-      const newToday = (ordersData || []).filter(o => new Date(o.created_at) >= today).length
+      const activeOrders = (ordersData || []).filter((o: any) => !o.deleted_at)
+      const cancelledOrders = (ordersData || []).filter((o: any) => o.deleted_at).length
+      const pendingCount = activeOrders.filter(o => o.status === 'pending').length
+      const inProgressCount = activeOrders.filter(o => o.status === 'in-progress').length
+      const completedCount = activeOrders.filter(o => o.status === 'completed').length
+      const newToday = activeOrders.filter(o => new Date(o.created_at) >= today).length
 
       setStats({
-        totalOrders: (ordersData || []).length,
+        totalOrders: activeOrders.length,
         pendingOrders: pendingCount,
         inProgressOrders: inProgressCount,
         completedOrders: completedCount,
         totalRevenue: '$0', // TODO: Calculate from budget field
-        newOrdersToday: newToday
+        newOrdersToday: newToday,
+        cancelledOrders
       })
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -164,8 +174,11 @@ export default function AdminDashboard() {
   const filterOrders = () => {
     let filtered = orders
 
-    // Status filter
-    if (statusFilter !== 'all') {
+    // If showing only cancelled, ignore status filter and keep only soft-deleted
+    if (showOnlyCancelled) {
+      filtered = filtered.filter(order => order.deleted_at)
+    } else if (statusFilter !== 'all') {
+      // Status filter for active orders
       filtered = filtered.filter(order => order.status === statusFilter)
     }
 
@@ -236,6 +249,77 @@ export default function AdminDashboard() {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/signin')
+  }
+
+  const cancelOrderAsAdmin = async (order: Order) => {
+    if (!order || !order.id) return
+    const confirmed = window.confirm(`Cancel order #${order.id.slice(0, 8).toUpperCase()} for this user?`)
+    if (!confirmed) return
+    try {
+      setActionLoading(true)
+      const { error } = await supabase
+        .from('orders')
+        .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', order.id)
+
+      if (error) {
+        console.error('Error cancelling order as admin:', error)
+        alert(`Failed to cancel order: ${error.message || 'Unknown error'}`)
+      } else {
+        alert(`Order #${order.id.slice(0, 8).toUpperCase()} has been cancelled.`)
+        await fetchDashboardData()
+        setShowOrderDetail(false)
+      }
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const deleteOrderPermanently = async (order: Order) => {
+    if (!order || !order.id) return
+    const confirmed = window.confirm(`Permanently delete order #${order.id.slice(0, 8).toUpperCase()}? This cannot be undone and will remove it from all views.`)
+    if (!confirmed) return
+    try {
+      setActionLoading(true)
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', order.id)
+
+      if (error) {
+        console.error('Error deleting order as admin:', error)
+        alert(`Failed to delete order: ${error.message || 'Unknown error'}`)
+      } else {
+        alert(`Order #${order.id.slice(0, 8).toUpperCase()} has been permanently deleted.`)
+        await fetchDashboardData()
+        setShowOrderDetail(false)
+      }
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const toggleBlockUser = async (order: Order) => {
+    if (!order || !order.user_id) return
+    const shortId = order.id.slice(0, 8).toUpperCase()
+    const confirmed = window.confirm(`Block this user from placing new orders? (Order #${shortId})`)
+    if (!confirmed) return
+    try {
+      setActionLoading(true)
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ is_blocked: true, updated_at: new Date().toISOString() })
+        .eq('user_id', order.user_id)
+
+      if (error) {
+        console.error('Error blocking user:', error)
+        alert(`Failed to block user: ${error.message || 'Unknown error'}`)
+      } else {
+        alert('User has been blocked from placing new orders.')
+      }
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   // Show loading while checking authentication
@@ -349,21 +433,34 @@ export default function AdminDashboard() {
           {activeTab === 'overview' && (
             <div className="space-y-8">
               {/* Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
                 {[
-                  { label: 'Total Orders', value: stats.totalOrders, icon: '📦', color: 'from-[#D4AF37] to-[#FFE17B]' },
-                  { label: 'Pending', value: stats.pendingOrders, icon: '⏳', color: 'from-[#F59E0B] to-[#FCD34D]' },
-                  { label: 'In Progress', value: stats.inProgressOrders, icon: '🔄', color: 'from-[#6B667A] to-[#60A5FA]' },
-                  { label: 'Completed', value: stats.completedOrders, icon: '✅', color: 'from-[#10B981] to-[#34D399]' },
-                  { label: 'New Today', value: stats.newOrdersToday, icon: '🆕', color: 'from-[#E11D48] to-[#FB7185]' },
-                  { label: 'Revenue', value: stats.totalRevenue, icon: '💰', color: 'from-[#8B5CF6] to-[#A78BFA]' }
+                  { key: 'total', label: 'Total Orders', value: stats.totalOrders, icon: '📦', color: 'from-[#D4AF37] to-[#FFE17B]' },
+                  { key: 'pending', label: 'Pending', value: stats.pendingOrders, icon: '⏳', color: 'from-[#F59E0B] to-[#FCD34D]' },
+                  { key: 'inProgress', label: 'In Progress', value: stats.inProgressOrders, icon: '🔄', color: 'from-[#6B667A] to-[#60A5FA]' },
+                  { key: 'completed', label: 'Completed', value: stats.completedOrders, icon: '✅', color: 'from-[#10B981] to-[#34D399]' },
+                  { key: 'newToday', label: 'New Today', value: stats.newOrdersToday, icon: '🆕', color: 'from-[#E11D48] to-[#FB7185]' },
+                  { key: 'revenue', label: 'Revenue', value: stats.totalRevenue, icon: '💰', color: 'from-[#8B5CF6] to-[#A78BFA]' },
+                  { key: 'cancelled', label: 'Cancelled', value: stats.cancelledOrders, icon: '🚫', color: 'from-[#4B5563] to-[#9CA3AF]' }
                 ].map((stat, index) => (
                   <div
                     key={index}
                     className="relative group"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity blur-xl" style={{ background: `linear-gradient(to right, ${stat.color.split(' ')[0].replace('from-', '')}, ${stat.color.split(' ')[1].replace('to-', '')})` }}></div>
-                    <div className="relative bg-[#041123]/60 backdrop-blur-xl border border-[#D4AF37]/20 rounded-2xl p-6 hover:border-[#D4AF37]/40 transition-all">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (stat.key === 'cancelled') {
+                          setActiveTab('orders')
+                          setIncludeCancelled(true)
+                          setShowOnlyCancelled(true)
+                          setStatusFilter('all')
+                          setSearchQuery('')
+                        }
+                      }}
+                      className="relative w-full text-left bg-[#041123]/60 backdrop-blur-xl border border-[#D4AF37]/20 rounded-2xl p-6 hover:border-[#D4AF37]/40 transition-all focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/60"
+                    >
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center text-2xl shadow-lg`}>
                           {stat.icon}
@@ -371,7 +468,7 @@ export default function AdminDashboard() {
                       </div>
                       <p className="text-3xl font-black text-[#D4AF37] mb-1">{stat.value}</p>
                       <p className="text-sm text-[#C6CDD1]/60 font-medium">{stat.label}</p>
-                    </div>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -423,8 +520,8 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               {/* Search and Filters */}
               <div className="bg-[#041123]/60 backdrop-blur-xl border border-[#D4AF37]/20 rounded-2xl p-6">
-                <div className="flex flex-col lg:flex-row gap-4">
-                  <div className="flex-1">
+                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+                  <div className="flex-1 w-full">
                     <input
                       type="text"
                       placeholder="Search by vehicle, customer, or order ID..."
@@ -433,20 +530,51 @@ export default function AdminDashboard() {
                       className="w-full px-4 py-3 rounded-xl bg-[#010812]/50 border border-[#D4AF37]/20 text-[#C6CDD1] placeholder-[#C6CDD1]/40 focus:border-[#D4AF37] focus:outline-none transition-colors"
                     />
                   </div>
-                  <div className="flex gap-2">
-                    {(['all', 'pending', 'in-progress', 'completed'] as const).map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => setStatusFilter(status)}
-                        className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-                          statusFilter === status
-                            ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123]'
-                            : 'bg-[#010812]/50 text-[#C6CDD1] border border-[#6B667A]/20 hover:bg-[#010812]/80'
-                        }`}
-                      >
-                        {status === 'all' ? 'All' : status.replace('-', ' ')}
-                      </button>
-                    ))}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {(['all', 'pending', 'in-progress', 'completed'] as const).map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          disabled={showOnlyCancelled}
+                          onClick={() => !showOnlyCancelled && setStatusFilter(status)}
+                          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                            showOnlyCancelled
+                              ? 'bg-[#010812]/30 text-[#6B667A] border border-[#6B667A]/30 cursor-not-allowed'
+                              : statusFilter === status
+                                ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123]'
+                                : 'bg-[#010812]/50 text-[#C6CDD1] border border-[#6B667A]/20 hover:bg-[#010812]/80'
+                          }`}
+                        >
+                          {status === 'all' ? 'All' : status.replace('-', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2 text-xs sm:text-sm text-[#C6CDD1]/70">
+                        <input
+                          type="checkbox"
+                          checked={includeCancelled}
+                          onChange={(e) => setIncludeCancelled(e.target.checked)}
+                          className="w-4 h-4 rounded border-[#D4AF37]/40 bg-[#010812]"
+                        />
+                        <span>Include cancelled orders</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs sm:text-sm text-[#C6CDD1]/70">
+                        <input
+                          type="checkbox"
+                          checked={showOnlyCancelled}
+                          onChange={(e) => setShowOnlyCancelled(e.target.checked)}
+                          className="w-4 h-4 rounded border-[#D4AF37]/40 bg-[#010812]"
+                        />
+                        <span>Show only cancelled</span>
+                      </label>
+                      {showOnlyCancelled && (
+                        <span className="text-[11px] sm:text-xs text-[#F59E0B]/80">
+                          Status filters are disabled while showing only cancelled orders.
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -469,7 +597,10 @@ export default function AdminDashboard() {
                     </thead>
                     <tbody>
                       {filteredOrders.map((order) => (
-                        <tr key={order.id} className="border-b border-[#6B667A]/20 hover:bg-[#010812]/30 transition-colors">
+                        <tr
+                          key={order.id}
+                          className={`border-b border-[#6B667A]/20 hover:bg-[#010812]/30 transition-colors ${order.deleted_at ? 'opacity-60' : ''}`}
+                        >
                           <td className="px-6 py-4 text-sm text-[#C6CDD1] font-mono">#{order.id.slice(0, 8)}</td>
                           <td className="px-6 py-4">
                             <div>
@@ -493,7 +624,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4">
                             <span className={`px-3 py-1 rounded-lg text-xs font-bold ${statusColors[order.status]?.bg || 'bg-gray-500/10'} ${statusColors[order.status]?.text || 'text-gray-500'} border ${statusColors[order.status]?.border || 'border-gray-500/30'}`}>
-                              {(order.status || 'unknown').replace('-', ' ').toUpperCase()}
+                              {order.deleted_at ? 'CANCELLED' : (order.status || 'unknown').replace('-', ' ').toUpperCase()}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm text-[#C6CDD1]/60">{new Date(order.created_at).toLocaleDateString()}</td>
@@ -564,14 +695,21 @@ export default function AdminDashboard() {
               {/* Customer Info */}
               <div className="bg-[#010812]/50 border border-[#D4AF37]/20 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-[#D4AF37] mb-4">Customer Information</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 items-center">
                   <div>
                     <p className="text-xs text-[#C6CDD1]/60 mb-1">Name</p>
                     <p className="text-sm text-[#C6CDD1]">{selectedOrder.first_name} {selectedOrder.last_name}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-[#C6CDD1]/60 mb-1">Phone</p>
-                    <p className="text-sm text-[#C6CDD1]">{selectedOrder.phone}</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs text-[#C6CDD1]/60 mb-1">Phone</p>
+                      <p className="text-sm text-[#C6CDD1]">{selectedOrder.phone}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/40">
+                        Active
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -643,6 +781,36 @@ export default function AdminDashboard() {
                       {status.replace('-', ' ').toUpperCase()}
                     </button>
                   ))}
+                </div>
+                <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    disabled={actionLoading || !!selectedOrder.deleted_at}
+                    onClick={() => cancelOrderAsAdmin(selectedOrder)}
+                    className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all text-sm ${
+                      selectedOrder.deleted_at
+                        ? 'bg-[#010812]/40 text-[#6B667A] border border-[#6B667A]/40 cursor-not-allowed'
+                        : 'bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/40 hover:bg-[#F59E0B]/20'
+                    }`}
+                  >
+                    {selectedOrder.deleted_at ? 'Order Cancelled' : actionLoading ? 'Cancelling...' : 'Cancel Order (Soft Delete)'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => deleteOrderPermanently(selectedOrder)}
+                    className="flex-1 px-4 py-3 rounded-xl font-semibold transition-all text-sm bg-[#E11D48]/10 text-[#E11D48] border border-[#E11D48]/40 hover:bg-[#E11D48]/20"
+                  >
+                    {actionLoading ? 'Deleting...' : 'Delete Permanently'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => toggleBlockUser(selectedOrder)}
+                    className="flex-1 px-4 py-3 rounded-xl font-semibold transition-all text-sm bg-[#6B667A]/10 text-[#E5E7EB] border border-[#6B667A]/40 hover:bg-[#6B667A]/30"
+                  >
+                    {actionLoading ? 'Applying...' : 'Block User'}
+                  </button>
                 </div>
               </div>
             </div>

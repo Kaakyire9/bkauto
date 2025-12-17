@@ -46,6 +46,7 @@ export default function OrderCarForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [blocked, setBlocked] = useState(false)
 
   const steps: OrderStep[] = ['vehicle', 'details', 'preferences', 'review']
   const stepTitles = {
@@ -115,6 +116,24 @@ export default function OrderCarForm() {
       if (!session) {
         setError('You must be signed in to place an order')
         router.push('/signin')
+        return
+      }
+
+      // Check if user is blocked from placing orders
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('is_blocked')
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (profileError) {
+        console.warn('Could not check blocked status:', profileError)
+      }
+
+      if (profile?.is_blocked) {
+        setBlocked(true)
+        setError('Your account has been blocked from placing new orders. Please contact support for assistance.')
+        setLoading(false)
         return
       }
 
@@ -486,18 +505,18 @@ export default function OrderCarForm() {
             <MotionPrimaryButton
               type="button"
               onClick={handleNext}
-              disabled={!isStepComplete}
+              disabled={!isStepComplete || blocked}
               className="px-8 py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next
+              {blocked ? 'Blocked from ordering' : 'Next'}
             </MotionPrimaryButton>
           ) : (
             <MotionPrimaryButton
               type="submit"
-              disabled={!isStepComplete || loading}
+              disabled={!isStepComplete || loading || blocked}
               className="px-8 py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Placing Order…' : 'Place Order'}
+              {blocked ? 'Blocked from ordering' : (loading ? 'Placing Order…' : 'Place Order')}
             </MotionPrimaryButton>
           )}
         </div>

@@ -90,12 +90,16 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
         }))
         setProfileForm({ name: fullName, email })
 
-        // Fetch user profile including avatar from Supabase
+        // Fetch user profile including avatar and blocked status from Supabase
         const { data: profileData } = await supabase
           .from('user_profiles')
-          .select('avatar_url')
+          .select('avatar_url, is_blocked')
           .eq('user_id', userId)
           .single()
+
+        if (profileData?.is_blocked) {
+          alert('Your account has been blocked from placing new orders. Please contact support if you believe this is a mistake.')
+        }
 
         if (profileData?.avatar_url) {
           // Get signed URL for the avatar
