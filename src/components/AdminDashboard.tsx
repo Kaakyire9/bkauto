@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabaseClient'
 import Footer from './Footer'
+import OrderMessages from './OrderMessages'
 
 interface Order {
   id: string
@@ -59,6 +60,7 @@ export default function AdminDashboard() {
   const [includeCancelled, setIncludeCancelled] = useState(false)
   const [showOnlyCancelled, setShowOnlyCancelled] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [adminUserId, setAdminUserId] = useState<string | null>(null)
 
   useEffect(() => {
     checkAdminAccess()
@@ -83,6 +85,8 @@ export default function AdminDashboard() {
         router.push('/signin?redirect=/admin')
         return
       }
+
+      setAdminUserId(session.user.id)
 
       // Check if user email is in admin list
       const adminEmails = [
@@ -813,6 +817,13 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               </div>
+              {/* Messages */}
+              {adminUserId && (
+                <OrderMessages
+                  orderId={selectedOrder.id}
+                  currentUserId={adminUserId}
+                />
+              )}
             </div>
           </div>
         </div>

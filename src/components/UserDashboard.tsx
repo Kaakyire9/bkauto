@@ -591,6 +591,15 @@ export default function UserDashboard({ initialTab = 'overview' }: { initialTab?
                       </div>
                     </div>
 
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <MotionPrimaryButton
+                        onClick={() => router.push(`/orders/${order.id}`)}
+                        className="px-4 py-2 rounded-lg text-xs sm:text-sm"
+                      >
+                        View Details &amp; Chat
+                      </MotionPrimaryButton>
+                    </div>
+
                     {order.status === 'pending' && (
                       <div className="mt-4 w-full flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                         <MotionPrimaryButton onClick={() => beginEdit(order)} className="w-full sm:w-auto px-4 py-3 rounded-lg">Edit</MotionPrimaryButton>
