@@ -822,6 +822,7 @@ export default function AdminDashboard() {
                 <OrderMessages
                   orderId={selectedOrder.id}
                   currentUserId={adminUserId}
+                  otherUserId={selectedOrder.user_id}
                 />
               )}
             </div>
