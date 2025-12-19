@@ -1,6 +1,6 @@
 "use client"
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '../lib/supabaseClient'
 import Footer from './Footer'
 import OrderMessages from './OrderMessages'
@@ -24,6 +24,7 @@ interface Order {
   status: 'pending' | 'in-progress' | 'completed'
   created_at: string
   deleted_at?: string | null
+  advisor_user_id?: string | null
 }
 
 interface DashboardStats {
@@ -38,6 +39,7 @@ interface DashboardStats {
 
 export default function AdminDashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'analytics' | 'settings'>('overview')
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<DashboardStats>({
@@ -61,6 +63,9 @@ export default function AdminDashboard() {
   const [showOnlyCancelled, setShowOnlyCancelled] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [adminUserId, setAdminUserId] = useState<string | null>(null)
+  const [unreadByOrder, setUnreadByOrder] = useState<Record<string, boolean>>({})
+  const [pendingOrderIdFromQuery, setPendingOrderIdFromQuery] = useState<string | null>(null)
+  const modalRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     checkAdminAccess()
@@ -75,6 +80,45 @@ export default function AdminDashboard() {
   useEffect(() => {
     filterOrders()
   }, [orders, searchQuery, statusFilter, showOnlyCancelled])
+
+  // Capture orderId from query when admin is on /admin
+  useEffect(() => {
+    if (!isAdmin) return
+
+    const orderIdFromQuery = searchParams.get('orderId')
+
+    // Only set once per URL state while we don't already have a pending id
+    if (orderIdFromQuery && !pendingOrderIdFromQuery) {
+      setPendingOrderIdFromQuery(orderIdFromQuery)
+    }
+  }, [isAdmin, searchParams])
+
+  // Open order detail once orders are loaded and we have a pending orderId
+  useEffect(() => {
+    if (!isAdmin || orders.length === 0 || !pendingOrderIdFromQuery) return
+
+    const match = orders.find(o => o.id === pendingOrderIdFromQuery)
+    if (!match) return
+
+    setSelectedOrder(match)
+    setShowOrderDetail(true)
+
+    // Clean up the URL so refreshes don't auto-open the modal again
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('orderId')
+    router.replace(`/admin${params.toString() ? `?${params.toString()}` : ''}`)
+
+    // Clear pending id so this effect won't run again until URL changes
+    setPendingOrderIdFromQuery(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, orders, pendingOrderIdFromQuery])
+
+  // Smoothly scroll the modal into view when it opens
+  useEffect(() => {
+    if (showOrderDetail && modalRef.current) {
+      modalRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [showOrderDetail])
 
   const checkAdminAccess = async () => {
     try {
@@ -92,7 +136,7 @@ export default function AdminDashboard() {
       const adminEmails = [
         'admin@bkauto.com',
         'r.aduboffour@gmail.com',
-        // Add more admin emails here
+        // Company can add more admin emails here later
       ]
 
       const userEmail = session.user.email
@@ -106,7 +150,6 @@ export default function AdminDashboard() {
         router.push('/dashboard')
         return
       }
-
       setIsAdmin(true)
     } catch (error) {
       console.error('Error checking admin access:', error)
@@ -133,7 +176,7 @@ export default function AdminDashboard() {
       }
 
       console.log('Fetched orders:', ordersData)
-      
+
       // Filter out any orders with null/undefined status and log them
       const baseOrders = (ordersData || []).filter(order => {
         if (!order.status) {
@@ -146,7 +189,63 @@ export default function AdminDashboard() {
 
       console.log(`Total orders: ${ordersData?.length}, Visible orders: ${visibleOrders.length}`)
       // Orders already have contact info (first_name, last_name, phone)
-      setOrders(visibleOrders as Order[])
+      const typedOrders = visibleOrders as Order[]
+      setOrders(typedOrders)
+
+      // Compute unread messages per order for this admin
+      if (adminUserId) {
+        const orderIds = typedOrders.map(o => o.id)
+        if (orderIds.length > 0) {
+          const { data: readsData, error: readsError } = await supabase
+            .from('message_reads')
+            .select('order_id, last_read_at')
+            .eq('user_id', adminUserId)
+            .in('order_id', orderIds)
+
+          if (readsError) {
+            console.error('Error fetching message_reads:', readsError)
+          } else {
+            const lastReadMap: Record<string, string> = {}
+            ;(readsData || []).forEach((r: any) => {
+              if (r.order_id && r.last_read_at) lastReadMap[r.order_id] = r.last_read_at
+            })
+
+            const { data: latestMessages, error: latestError } = await supabase
+              .from('messages')
+              .select('order_id, created_at')
+              .in('order_id', orderIds)
+              .eq('recipient_id', adminUserId)
+
+            if (latestError) {
+              console.error('Error fetching latest messages:', latestError)
+            } else {
+              const newestByOrder: Record<string, string> = {}
+              ;(latestMessages || []).forEach((m: any) => {
+                if (!m.order_id || !m.created_at) return
+                const prev = newestByOrder[m.order_id]
+                if (!prev || new Date(m.created_at) > new Date(prev)) {
+                  newestByOrder[m.order_id] = m.created_at
+                }
+              })
+
+              const unreadMap: Record<string, boolean> = {}
+              orderIds.forEach(oid => {
+                const newest = newestByOrder[oid]
+                const lastRead = lastReadMap[oid]
+                if (!newest) {
+                  unreadMap[oid] = false
+                } else if (!lastRead) {
+                  unreadMap[oid] = true
+                } else {
+                  unreadMap[oid] = new Date(newest) > new Date(lastRead)
+                }
+              })
+
+              setUnreadByOrder(unreadMap)
+            }
+          }
+        }
+      }
 
       // Calculate stats
       const today = new Date()
@@ -321,6 +420,28 @@ export default function AdminDashboard() {
       } else {
         alert('User has been blocked from placing new orders.')
       }
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const updateAdvisorForOrder = async (order: Order, advisorUserId: string | null) => {
+    if (!order || !order.id) return
+    try {
+      setActionLoading(true)
+      const { error } = await supabase
+        .from('orders')
+        .update({ advisor_user_id: advisorUserId, updated_at: new Date().toISOString() })
+        .eq('id', order.id)
+
+      if (error) {
+        console.error('Error updating advisor for order:', error)
+        alert(error.message || 'Failed to update advisor')
+        return
+      }
+
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, advisor_user_id: advisorUserId } : o))
+      setSelectedOrder(prev => prev && prev.id === order.id ? { ...prev, advisor_user_id: advisorUserId } : prev)
     } finally {
       setActionLoading(false)
     }
@@ -633,15 +754,20 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 text-sm text-[#C6CDD1]/60">{new Date(order.created_at).toLocaleDateString()}</td>
                           <td className="px-6 py-4">
-                            <button
-                              onClick={() => {
-                                setSelectedOrder(order)
-                                setShowOrderDetail(true)
-                              }}
-                              className="px-3 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123] text-xs font-semibold hover:shadow-lg transition-all"
-                            >
-                              View
-                            </button>
+                            <div className="flex items-center gap-2">
+                              {unreadByOrder[order.id] && (
+                                <span className="inline-flex w-2 h-2 rounded-full bg-[#D4AF37]" title="New messages" />
+                              )}
+                              <button
+                                onClick={() => {
+                                  setSelectedOrder(order)
+                                  setShowOrderDetail(true)
+                                }}
+                                className="px-3 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123] text-xs font-semibold hover:shadow-lg transition-all"
+                              >
+                                View
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -679,14 +805,20 @@ export default function AdminDashboard() {
       {/* Order Detail Modal */}
       {showOrderDetail && selectedOrder && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-gradient-to-br from-[#041123] to-[#010812] border border-[#D4AF37]/30 rounded-3xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div
+            ref={modalRef}
+            className="bg-gradient-to-br from-[#041123] to-[#010812] border border-[#D4AF37]/30 rounded-3xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] to-[#FFE17B]">Order Details</h2>
                 <p className="text-sm text-[#C6CDD1]/60 mt-1">Order ID: #{selectedOrder.id.slice(0, 8)}</p>
               </div>
               <button
-                onClick={() => setShowOrderDetail(false)}
+                onClick={() => {
+                  setShowOrderDetail(false)
+                  setSelectedOrder(null)
+                }}
                 className="p-2 rounded-xl bg-[#041123]/50 border border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-all"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -762,6 +894,26 @@ export default function AdminDashboard() {
                     <p className="text-sm text-[#C6CDD1]">{selectedOrder.timeline}</p>
                   </div>
                   <div className="col-span-2">
+                    <p className="text-xs text-[#C6CDD1]/60 mb-1">Assigned Advisor</p>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={actionLoading || !adminUserId}
+                        onClick={() => updateAdvisorForOrder(selectedOrder, adminUserId!)}
+                        className="px-3 py-2 rounded-xl bg-[#041123]/70 border border-[#D4AF37]/30 text-sm text-[#D4AF37] hover:bg-[#D4AF37]/10 disabled:opacity-60"
+                      >
+                        {selectedOrder.advisor_user_id === adminUserId
+                          ? 'You are the advisor'
+                          : 'Assign me as advisor'}
+                      </button>
+                      {selectedOrder.advisor_user_id && selectedOrder.advisor_user_id !== adminUserId && (
+                        <span className="text-xs text-[#C6CDD1]/60">
+                          Advisor already assigned
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
                     <p className="text-xs text-[#C6CDD1]/60 mb-1">Notes</p>
                     <p className="text-sm text-[#C6CDD1]">{selectedOrder.notes || 'No notes provided'}</p>
                   </div>
@@ -823,6 +975,8 @@ export default function AdminDashboard() {
                   orderId={selectedOrder.id}
                   currentUserId={adminUserId}
                   otherUserId={selectedOrder.user_id}
+                  otherUserName={selectedOrder.first_name || 'Client'}
+                  currentUserLabel="You"
                 />
               )}
             </div>

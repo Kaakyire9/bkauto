@@ -2,12 +2,14 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
+import { usePathname, useRouter } from 'next/navigation'
 
 type Notification = {
   id: string
   title: string
   body?: string
   type?: string
+  order_id?: string | null
   created_at: string
   read?: boolean
 }
@@ -17,6 +19,8 @@ export default function NotificationsBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
+  const router = useRouter()
+  const pathname = usePathname()
 
   // Fetch notifications from Supabase
   useEffect(() => {
@@ -123,6 +127,26 @@ export default function NotificationsBell() {
     }
   }
 
+  function handleNotificationClick(n: Notification) {
+    // Best-effort mark as read; ignore failure in UI flow
+    if (!n.read) {
+      markRead(n.id)
+    }
+
+    if (n.type === 'message' && n.order_id) {
+      const isAdmin = pathname?.startsWith('/admin')
+      if (isAdmin) {
+        router.push(`/admin?orderId=${encodeURIComponent(n.order_id)}`)
+      } else {
+        router.push(`/orders/${encodeURIComponent(n.order_id)}`)
+      }
+      setOpen(false)
+      return
+    }
+
+    // Other notification types: no-op for now (could extend later)
+  }
+
   // close on outside click
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -210,9 +234,7 @@ export default function NotificationsBell() {
                       ? 'bg-[#041123]/40 hover:bg-[#041123]/60'
                       : 'bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30'
                   }`}
-                  onClick={() => {
-                    if (!n.read) markRead(n.id)
-                  }}
+                  onClick={() => handleNotificationClick(n)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">

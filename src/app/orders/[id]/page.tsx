@@ -7,6 +7,7 @@ import OrderMessages from '../../../components/OrderMessages'
 
 interface Order {
   id: string
+  first_name?: string
   vehicle_type: string
   make: string
   model: string
@@ -19,6 +20,7 @@ interface Order {
   notes: string
   status: 'pending' | 'in-progress' | 'completed'
   created_at: string
+  advisor_user_id?: string | null
 }
 
 export default function OrderDetailsPage() {
@@ -182,7 +184,13 @@ export default function OrderDetailsPage() {
                   </div>
                 </div>
                 {userId && (
-                  <OrderMessages orderId={order.id} currentUserId={userId} />
+                  <OrderMessages
+                    orderId={order.id}
+                    currentUserId={userId}
+                    otherUserId={order.advisor_user_id || undefined}
+                    otherUserName="Advisor"
+                    currentUserLabel="You"
+                  />
                 )}
               </div>
             </div>

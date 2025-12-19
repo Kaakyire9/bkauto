@@ -6,6 +6,8 @@ interface OrderMessagesProps {
   orderId: string
   currentUserId: string
   otherUserId?: string
+  otherUserName?: string
+  currentUserLabel?: string
 }
 
 interface Message {
@@ -18,7 +20,7 @@ interface Message {
   created_at: string
 }
 
-export default function OrderMessages({ orderId, currentUserId, otherUserId }: OrderMessagesProps) {
+export default function OrderMessages({ orderId, currentUserId, otherUserId, otherUserName, currentUserLabel }: OrderMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(false)
@@ -42,6 +44,22 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId }: O
         }
 
         setMessages(data || [])
+
+        // Mark messages as read for this user/order
+        const { data: sessionData } = await supabase.auth.getSession()
+        const sessionUserId = sessionData?.session?.user?.id
+        if (sessionUserId) {
+          await supabase
+            .from('message_reads')
+            .upsert(
+              {
+                order_id: orderId,
+                user_id: sessionUserId,
+                last_read_at: new Date().toISOString()
+              },
+              { onConflict: 'order_id,user_id' }
+            )
+        }
       } finally {
         setLoading(false)
       }
@@ -55,6 +73,8 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId }: O
   useEffect(() => {
     if (!orderId) return
 
+    console.log('OrderMessages subscribing to realtime for order:', orderId)
+
     const channel = supabase
       .channel(`messages-order-${orderId}`)
       .on(
@@ -66,6 +86,7 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId }: O
           filter: `order_id=eq.${orderId}`
         },
         (payload) => {
+          console.log('Realtime message payload for order', orderId, payload)
           const newMsg = payload.new as Message
           setMessages(prev => [...prev, newMsg])
         }
@@ -115,7 +136,23 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId }: O
         return
       }
 
-      setMessages(prev => [...prev, data as Message])
+      const inserted = data as Message
+
+      // Create a notification for the recipient about this new message
+      try {
+        const preview = inserted.body?.slice(0, 80) || 'New message on your order'
+        await supabase.from('notifications').insert({
+          user_id: recipientId,
+          title: 'New message on your order',
+          body: preview,
+          type: 'message',
+          order_id: orderId
+        })
+      } catch (notifyError) {
+        console.warn('Failed to create message notification', notifyError)
+      }
+
+      setMessages(prev => [...prev, inserted])
       setNewMessage('')
     } finally {
       setSending(false)
@@ -173,7 +210,23 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId }: O
         return
       }
 
-      setMessages(prev => [...prev, data as Message])
+      const inserted = data as Message
+
+      // Create a notification for the recipient about this new image message
+      try {
+        const preview = inserted.body?.slice(0, 80) || 'New image message on your order'
+        await supabase.from('notifications').insert({
+          user_id: recipientId,
+          title: 'New message on your order',
+          body: preview,
+          type: 'message',
+          order_id: orderId
+        })
+      } catch (notifyError) {
+        console.warn('Failed to create image message notification', notifyError)
+      }
+
+      setMessages(prev => [...prev, inserted])
       setNewMessage('')
       e.target.value = ''
     } finally {
@@ -194,6 +247,8 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId }: O
         ) : (
           messages.map(msg => {
             const isMine = msg.sender_id === currentUserId
+            const mineLabel = currentUserLabel || 'You'
+            const otherLabel = otherUserName || 'Advisor'
             return (
               <div
                 key={msg.id}
@@ -225,7 +280,7 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId }: O
                   )}
                   <div className="flex justify-between items-center gap-2 mt-1">
                     <span className={`text-[10px] font-semibold ${isMine ? 'text-[#041123]/80' : 'text-[#D4AF37]/80'}`}>
-                      {isMine ? 'You' : 'Advisor'}
+                      {isMine ? mineLabel : otherLabel}
                     </span>
                     <span className={`text-[10px] ${isMine ? 'text-[#041123]/70' : 'text-[#C6CDD1]/50'}`}>
                       {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
