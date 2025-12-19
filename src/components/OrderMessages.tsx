@@ -18,6 +18,8 @@ interface Message {
   body: string | null
   image_url: string | null
   created_at: string
+  delivered_at?: string | null
+  read_at?: string | null
 }
 
 export default function OrderMessages({ orderId, currentUserId, otherUserId, otherUserName, currentUserLabel }: OrderMessagesProps) {
@@ -27,6 +29,10 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
   const [sending, setSending] = useState(false)
   const endRef = useRef<HTMLDivElement | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [otherOnline, setOtherOnline] = useState<boolean | null>(null)
+  const [otherTyping, setOtherTyping] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -45,10 +51,11 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
 
         setMessages(data || [])
 
-        // Mark messages as read for this user/order
+        // Mark messages as read for this user/order and update per-message read_at
         const { data: sessionData } = await supabase.auth.getSession()
         const sessionUserId = sessionData?.session?.user?.id
         if (sessionUserId) {
+          // Conversation-level read marker
           await supabase
             .from('message_reads')
             .upsert(
@@ -59,6 +66,18 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
               },
               { onConflict: 'order_id,user_id' }
             )
+
+          // Per-message read marker for messages to this user on this order
+          const { error: readError } = await supabase
+            .from('messages')
+            .update({ read_at: new Date().toISOString() })
+            .eq('order_id', orderId)
+            .eq('recipient_id', sessionUserId)
+            .is('read_at', null)
+
+          if (readError) {
+            console.warn('Failed to update message read_at', readError)
+          }
         }
       } finally {
         setLoading(false)
@@ -69,6 +88,54 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
       fetchMessages()
     }
   }, [orderId])
+
+  // Fetch and subscribe to other user's presence
+  useEffect(() => {
+    const fetchPresence = async () => {
+      if (!otherUserId) return
+      const { data, error } = await supabase
+        .from('user_presence')
+        .select('last_seen_at')
+        .eq('user_id', otherUserId)
+        .maybeSingle()
+
+      if (error) {
+        console.warn('Failed to fetch presence', error)
+        return
+      }
+
+      if (!data) {
+        setOtherOnline(false)
+        return
+      }
+
+      const lastSeen = new Date(data.last_seen_at).getTime()
+      const now = Date.now()
+      const diffSeconds = (now - lastSeen) / 1000
+      setOtherOnline(diffSeconds < 60)
+    }
+
+    fetchPresence()
+
+    if (!otherUserId) return
+    const channel = supabase
+      .channel(`presence-${otherUserId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'user_presence', filter: `user_id=eq.${otherUserId}` },
+        (payload) => {
+          const lastSeen = new Date((payload.new as any).last_seen_at).getTime()
+          const now = Date.now()
+          const diffSeconds = (now - lastSeen) / 1000
+          setOtherOnline(diffSeconds < 60)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [otherUserId])
 
   useEffect(() => {
     if (!orderId) return
@@ -93,10 +160,83 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
       )
       .subscribe()
 
+    // When current user is the recipient, mark newly received messages as delivered
+    const deliveryChannel = supabase
+      .channel(`messages-delivery-order-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `order_id=eq.${orderId}`
+        },
+        async (payload) => {
+          const inserted = payload.new as Message
+          const { data: sessionData } = await supabase.auth.getSession()
+          const sessionUserId = sessionData?.session?.user?.id
+          if (!sessionUserId) return
+
+          if (inserted.recipient_id === sessionUserId && !inserted.delivered_at) {
+            const { error } = await supabase
+              .from('messages')
+              .update({ delivered_at: new Date().toISOString() })
+              .eq('id', inserted.id)
+              .is('delivered_at', null)
+
+            if (error) {
+              console.warn('Failed to update message delivered_at', error)
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+      supabase.removeChannel(deliveryChannel)
+    }
+  }, [orderId])
+
+  // Subscribe to other user's typing state for this order
+  useEffect(() => {
+    if (!orderId || !otherUserId) return
+
+    const channel = supabase
+      .channel(`typing-${orderId}-${otherUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'message_typing',
+          filter: `order_id=eq.${orderId},user_id=eq.${otherUserId}`
+        },
+        (payload) => {
+          const isTypingNow = (payload.new as any).is_typing
+          setOtherTyping(!!isTypingNow)
+        }
+      )
+      .subscribe()
+
+    // Fetch initial typing state
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('message_typing')
+        .select('is_typing')
+        .eq('order_id', orderId)
+        .eq('user_id', otherUserId)
+        .maybeSingle()
+
+      if (!error && data) {
+        setOtherTyping(!!data.is_typing)
+      }
+    })()
+
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [orderId])
+  }, [orderId, otherUserId])
 
   useEffect(() => {
     if (endRef.current) {
@@ -154,6 +294,20 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
 
       setMessages(prev => [...prev, inserted])
       setNewMessage('')
+
+      // Reset typing state on send
+      setIsTyping(false)
+      await supabase
+        .from('message_typing')
+        .upsert(
+          {
+            order_id: orderId,
+            user_id: sessionUserId,
+            is_typing: false,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'order_id,user_id' }
+        )
     } finally {
       setSending(false)
     }
@@ -165,6 +319,48 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
 
     try {
       setUploading(true)
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setNewMessage(value)
+
+    const { data: sessionData } = await supabase.auth.getSession()
+    const sessionUserId = sessionData?.session?.user?.id
+    if (!sessionUserId) return
+
+    // Always mark as typing on keypress
+    setIsTyping(true)
+    await supabase
+      .from('message_typing')
+      .upsert(
+        {
+          order_id: orderId,
+          user_id: sessionUserId,
+          is_typing: true,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'order_id,user_id' }
+      )
+
+    // Debounce stop-typing
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+    typingTimeoutRef.current = setTimeout(async () => {
+      setIsTyping(false)
+      await supabase
+        .from('message_typing')
+        .upsert(
+          {
+            order_id: orderId,
+            user_id: sessionUserId,
+            is_typing: false,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'order_id,user_id' }
+        )
+    }, 2000)
+  }
+
       const { data: sessionData } = await supabase.auth.getSession()
       const sessionUserId = sessionData?.session?.user?.id
       if (!sessionUserId) {
@@ -234,10 +430,79 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     }
   }
 
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setNewMessage(value)
+
+    const { data: sessionData } = await supabase.auth.getSession()
+    const sessionUserId = sessionData?.session?.user?.id
+    if (!sessionUserId) return
+
+    // Start typing
+    if (!isTyping) {
+      setIsTyping(true)
+      await supabase
+        .from('message_typing')
+        .upsert(
+          {
+            order_id: orderId,
+            user_id: sessionUserId,
+            is_typing: true,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'order_id,user_id' }
+        )
+    }
+
+    // Debounce stop-typing
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+    typingTimeoutRef.current = setTimeout(async () => {
+      setIsTyping(false)
+      await supabase
+        .from('message_typing')
+        .upsert(
+          {
+            order_id: orderId,
+            user_id: sessionUserId,
+            is_typing: false,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'order_id,user_id' }
+        )
+    }, 2000)
+  }
+
   return (
     <div className="bg-[#010812]/50 border border-[#D4AF37]/20 rounded-2xl p-4 sm:p-5 flex flex-col h-80">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-[#D4AF37]">Messages</h3>
+        <div>
+          <h3 className="text-sm font-bold text-[#D4AF37]">Messages</h3>
+          {otherUserId && (
+            <div className="flex flex-col mt-1">
+              <div className="flex items-center gap-1">
+                <span
+                  className={`inline-block w-2 h-2 rounded-full ${
+                    otherOnline ? 'bg-[#4ade80]' : 'bg-[#64748b]'
+                  }`}
+                />
+                <span className="text-[11px] text-[#C6CDD1]/70">
+                  {otherOnline === null
+                    ? 'Checking status...'
+                    : otherOnline
+                    ? 'Online'
+                    : 'Offline'}
+                </span>
+              </div>
+              {otherTyping && (
+                <span className="text-[11px] text-[#D4AF37]/80 mt-0.5">
+                  Typing...
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto space-y-3 pr-1">
         {loading ? (
@@ -282,9 +547,21 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
                     <span className={`text-[10px] font-semibold ${isMine ? 'text-[#041123]/80' : 'text-[#D4AF37]/80'}`}>
                       {isMine ? mineLabel : otherLabel}
                     </span>
-                    <span className={`text-[10px] ${isMine ? 'text-[#041123]/70' : 'text-[#C6CDD1]/50'}`}>
-                      {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className={`text-[10px] ${isMine ? 'text-[#041123]/70' : 'text-[#C6CDD1]/50'}`}>
+                        {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {isMine && (
+                        <span className="text-[11px]">
+                          {msg.read_at
+                            ? <span className="text-[#1D9BF0]">✓✓</span>
+                            : msg.delivered_at
+                            ? <span className="text-[#041123]/80">✓✓</span>
+                            : <span className="text-[#041123]/80">✓</span>
+                          }
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -308,7 +585,7 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
         <input
           type="text"
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={handleChange}
           placeholder="Type a message..."
           className="flex-1 px-3 py-2 rounded-xl bg-[#010812]/70 border border-[#D4AF37]/20 text-xs sm:text-sm text-[#C6CDD1] placeholder:text-[#C6CDD1]/40 focus:outline-none focus:border-[#D4AF37]"
         />
