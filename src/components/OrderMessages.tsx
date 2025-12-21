@@ -33,6 +33,27 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
   const [otherTyping, setOtherTyping] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+
+  const getTypingChannel = async () => {
+    if (typingChannelRef.current) return typingChannelRef.current
+
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData?.session?.access_token
+    if (!accessToken) {
+      console.warn('[typing-send] no access token; cannot send typing broadcast')
+      return null
+    }
+
+    await supabase.realtime.setAuth(accessToken)
+    const topic = `order:${orderId}:typing`
+    console.log('[typing-send] creating typing channel', topic)
+    const channel = supabase.channel(topic, {
+      config: { private: true, broadcast: { self: true } },
+    })
+    typingChannelRef.current = channel.subscribe()
+    return typingChannelRef.current
+  }
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -89,10 +110,50 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     }
   }, [orderId])
 
-  // Fetch and subscribe to other user's presence
+  // Fetch and subscribe to other user's presence via Realtime broadcast
   useEffect(() => {
-    const fetchPresence = async () => {
-      if (!otherUserId) return
+    if (!otherUserId) return
+
+    const setup = async () => {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData?.session?.access_token
+      if (!accessToken) {
+        console.warn('[presence-sub] no access token; skipping presence channel')
+        return null
+      }
+
+      await supabase.realtime.setAuth(accessToken)
+
+      const topic = `user:${otherUserId}:presence`
+      console.log('[presence-sub] subscribe to topic', topic)
+
+      const channel = supabase
+        .channel(topic, { config: { private: true, broadcast: { self: true } } })
+        // Listen to all presence broadcasts regardless of event name (typed v2 API)
+        .on('broadcast', { event: '*' }, (payload: any) => {
+          console.log('[presence-sub] raw payload', payload)
+          const container = payload?.payload
+          const row = container?.record ?? container?.new ?? null
+          const lastSeenIso = row?.last_seen_at
+          if (!lastSeenIso) return
+          const lastSeen = new Date(lastSeenIso).getTime()
+          const now = Date.now()
+          const diffSeconds = (now - lastSeen) / 1000
+          setOtherOnline(diffSeconds < 60)
+        })
+        .subscribe()
+
+      return channel
+    }
+
+    let presenceChannel: ReturnType<typeof supabase.channel> | null = null
+
+    setup().then(ch => {
+      presenceChannel = ch
+    })
+
+    // Initial presence fetch from table for immediate status
+    ;(async () => {
       const { data, error } = await supabase
         .from('user_presence')
         .select('last_seen_at')
@@ -100,141 +161,142 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
         .maybeSingle()
 
       if (error) {
-        console.warn('Failed to fetch presence', error)
-        return
-      }
-
-      if (!data) {
+        console.warn('[presence-sub] initial fetch error', error)
+      } else if (data?.last_seen_at) {
+        const lastSeen = new Date(data.last_seen_at).getTime()
+        const now = Date.now()
+        const diffSeconds = (now - lastSeen) / 1000
+        setOtherOnline(diffSeconds < 60)
+      } else {
         setOtherOnline(false)
-        return
       }
-
-      const lastSeen = new Date(data.last_seen_at).getTime()
-      const now = Date.now()
-      const diffSeconds = (now - lastSeen) / 1000
-      setOtherOnline(diffSeconds < 60)
-    }
-
-    fetchPresence()
-
-    if (!otherUserId) return
-    const channel = supabase
-      .channel(`presence-${otherUserId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'user_presence', filter: `user_id=eq.${otherUserId}` },
-        (payload) => {
-          const lastSeen = new Date((payload.new as any).last_seen_at).getTime()
-          const now = Date.now()
-          const diffSeconds = (now - lastSeen) / 1000
-          setOtherOnline(diffSeconds < 60)
-        }
-      )
-      .subscribe()
+    })()
 
     return () => {
-      supabase.removeChannel(channel)
+      if (presenceChannel) {
+        console.log('[presence-sub] removing subscription', { topic: presenceChannel.topic })
+        supabase.removeChannel(presenceChannel)
+      }
     }
   }, [otherUserId])
 
   useEffect(() => {
     if (!orderId) return
 
-    console.log('OrderMessages subscribing to realtime for order:', orderId)
+    const setup = async () => {
+      console.log('OrderMessages subscribing to realtime for order (broadcast):', orderId)
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData?.session?.access_token
+      if (!accessToken) {
+        console.warn('[msg-sub] no access token; skipping broadcast setup')
+        return null
+      }
 
-    const channel = supabase
-      .channel(`messages-order-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `order_id=eq.${orderId}`
-        },
-        (payload) => {
-          console.log('Realtime message payload for order', orderId, payload)
-          const newMsg = payload.new as Message
-          setMessages(prev => [...prev, newMsg])
-        }
-      )
-      .subscribe()
+      await supabase.realtime.setAuth(accessToken)
 
-    // When current user is the recipient, mark newly received messages as delivered
-    const deliveryChannel = supabase
-      .channel(`messages-delivery-order-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `order_id=eq.${orderId}`
-        },
-        async (payload) => {
-          const inserted = payload.new as Message
-          const { data: sessionData } = await supabase.auth.getSession()
-          const sessionUserId = sessionData?.session?.user?.id
-          if (!sessionUserId) return
+      const topic = `order:${orderId}:messages`
+      console.log('[msg-sub] subscribe to topic', topic)
 
-          if (inserted.recipient_id === sessionUserId && !inserted.delivered_at) {
-            const { error } = await supabase
-              .from('messages')
-              .update({ delivered_at: new Date().toISOString() })
-              .eq('id', inserted.id)
-              .is('delivered_at', null)
-
-            if (error) {
-              console.warn('Failed to update message delivered_at', error)
-            }
+      const messageChannel = supabase
+        .channel(topic, { config: { private: true, broadcast: { self: true, ack: true } } })
+        .on('broadcast', { event: 'INSERT' }, (payload: any) => {
+          console.log('[msg-sub] raw broadcast payload', payload)
+          // broadcast_changes sends a change envelope in payload.payload
+          const container = payload?.payload
+          const row = container?.record as Partial<Message> | undefined
+          if (!row) {
+            console.warn('[msg-sub] no record in broadcast payload', payload)
+            return
           }
-        }
-      )
-      .subscribe()
+
+          if (!row.id || !row.sender_id || !row.recipient_id || !row.created_at) {
+            console.warn('[msg-sub] incomplete message row, skipping', row)
+            return
+          }
+
+          const newMsg = row as Message
+          console.log('[msg-sub] broadcast INSERT', newMsg)
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) {
+              console.log('[msg-sub] message already in list, skipping duplicate', newMsg.id)
+              return prev
+            }
+            return [...prev, newMsg]
+          })
+        })
+        .subscribe()
+
+      return messageChannel
+    }
+
+    let messageChannel: ReturnType<typeof supabase.channel> | null = null
+
+    setup().then(ch => {
+      messageChannel = ch
+    })
 
     return () => {
-      supabase.removeChannel(channel)
-      supabase.removeChannel(deliveryChannel)
+      if (messageChannel) {
+        console.log('[msg-sub] removing broadcast subscription', { topic: messageChannel.topic })
+        supabase.removeChannel(messageChannel)
+      }
     }
   }, [orderId])
 
-  // Subscribe to other user's typing state for this order
+  // Subscribe to other user's typing state for this order via Realtime broadcast
   useEffect(() => {
     if (!orderId || !otherUserId) return
 
-    const channel = supabase
-      .channel(`typing-${orderId}-${otherUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'message_typing',
-          filter: `order_id=eq.${orderId},user_id=eq.${otherUserId}`
-        },
-        (payload) => {
-          const isTypingNow = (payload.new as any).is_typing
-          setOtherTyping(!!isTypingNow)
+    const setup = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const accessToken = sessionData?.session?.access_token
+        if (!accessToken) {
+          console.warn('[typing-sub] no access token; skipping typing channel setup')
+          return
         }
-      )
-      .subscribe()
 
-    // Fetch initial typing state
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('message_typing')
-        .select('is_typing')
-        .eq('order_id', orderId)
-        .eq('user_id', otherUserId)
-        .maybeSingle()
+        await supabase.realtime.setAuth(accessToken)
 
-      if (!error && data) {
-        setOtherTyping(!!data.is_typing)
+        const topic = `order:${orderId}:typing`
+        console.log('[typing-sub] subscribe to topic', { topic, otherUserId })
+
+        const channel = supabase
+          .channel(topic, { config: { private: true, broadcast: { self: true } } })
+          .on('broadcast', { event: 'typing_changed' }, ({ payload }) => {
+            console.log('[typing-sub] broadcast payload', payload)
+            const { user_id, is_typing } = payload as any
+            if (!user_id) return
+            if (user_id !== otherUserId) {
+              console.log('[typing-sub] ignoring typing from non-other user', {
+                expectedOtherUserId: otherUserId,
+                user_id,
+              })
+              return
+            }
+            console.log('[typing-sub] updating otherTyping from broadcast', { is_typing })
+            setOtherTyping(!!is_typing)
+          })
+          .subscribe()
+
+        return channel
+      } catch (err) {
+        console.error('[typing-sub] failed to setup typing channel', err)
+        return undefined
       }
-    })()
+    }
+
+    let activeChannel: ReturnType<typeof supabase.channel> | undefined
+
+    setup().then((channel) => {
+      activeChannel = channel
+    })
 
     return () => {
-      supabase.removeChannel(channel)
+      if (activeChannel) {
+        console.log('[typing-sub] removing broadcast subscription', { topic: activeChannel.topic })
+        supabase.removeChannel(activeChannel)
+      }
     }
   }, [orderId, otherUserId])
 
@@ -292,7 +354,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
         console.warn('Failed to create message notification', notifyError)
       }
 
-      setMessages(prev => [...prev, inserted])
       setNewMessage('')
 
       // Reset typing state on send
@@ -319,48 +380,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
 
     try {
       setUploading(true)
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setNewMessage(value)
-
-    const { data: sessionData } = await supabase.auth.getSession()
-    const sessionUserId = sessionData?.session?.user?.id
-    if (!sessionUserId) return
-
-    // Always mark as typing on keypress
-    setIsTyping(true)
-    await supabase
-      .from('message_typing')
-      .upsert(
-        {
-          order_id: orderId,
-          user_id: sessionUserId,
-          is_typing: true,
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: 'order_id,user_id' }
-      )
-
-    // Debounce stop-typing
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-    }
-    typingTimeoutRef.current = setTimeout(async () => {
-      setIsTyping(false)
-      await supabase
-        .from('message_typing')
-        .upsert(
-          {
-            order_id: orderId,
-            user_id: sessionUserId,
-            is_typing: false,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: 'order_id,user_id' }
-        )
-    }, 2000)
-  }
-
       const { data: sessionData } = await supabase.auth.getSession()
       const sessionUserId = sessionData?.session?.user?.id
       if (!sessionUserId) {
@@ -422,7 +441,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
         console.warn('Failed to create image message notification', notifyError)
       }
 
-      setMessages(prev => [...prev, inserted])
       setNewMessage('')
       e.target.value = ''
     } finally {
@@ -434,24 +452,35 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     const value = e.target.value
     setNewMessage(value)
 
+    console.log('[typing] input change', { orderId, value })
+
     const { data: sessionData } = await supabase.auth.getSession()
     const sessionUserId = sessionData?.session?.user?.id
     if (!sessionUserId) return
 
-    // Start typing
-    if (!isTyping) {
-      setIsTyping(true)
-      await supabase
-        .from('message_typing')
-        .upsert(
-          {
-            order_id: orderId,
-            user_id: sessionUserId,
-            is_typing: true,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: 'order_id,user_id' }
-        )
+    // Always mark as typing on keypress
+    setIsTyping(true)
+    console.log('[typing] set is_typing=true for', { orderId, userId: sessionUserId })
+    await supabase
+      .from('message_typing')
+      .upsert(
+        {
+          order_id: orderId,
+          user_id: sessionUserId,
+          is_typing: true,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'order_id,user_id' }
+      )
+
+    const typingChannel = await getTypingChannel()
+    if (typingChannel) {
+      console.log('[typing-send] broadcasting is_typing=true')
+      typingChannel.send({
+        type: 'broadcast',
+        event: 'typing_changed',
+        payload: { user_id: sessionUserId, is_typing: true },
+      })
     }
 
     // Debounce stop-typing
@@ -460,6 +489,7 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     }
     typingTimeoutRef.current = setTimeout(async () => {
       setIsTyping(false)
+      console.log('[typing] timeout -> set is_typing=false for', { orderId, userId: sessionUserId })
       await supabase
         .from('message_typing')
         .upsert(
@@ -471,6 +501,16 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
           },
           { onConflict: 'order_id,user_id' }
         )
+
+      const typingChannel2 = await getTypingChannel()
+      if (typingChannel2) {
+        console.log('[typing-send] broadcasting is_typing=false')
+        typingChannel2.send({
+          type: 'broadcast',
+          event: 'typing_changed',
+          payload: { user_id: sessionUserId, is_typing: false },
+        })
+      }
     }, 2000)
   }
 
@@ -511,6 +551,11 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
           <p className="text-xs text-[#C6CDD1]/60">No messages yet. Start the conversation below.</p>
         ) : (
           messages.map(msg => {
+            if (!msg || !msg.sender_id) {
+              console.warn('[msg-render] skipping invalid message row', msg)
+              return null
+            }
+
             const isMine = msg.sender_id === currentUserId
             const mineLabel = currentUserLabel || 'You'
             const otherLabel = otherUserName || 'Advisor'
