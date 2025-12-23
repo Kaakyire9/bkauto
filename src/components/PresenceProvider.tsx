@@ -9,19 +9,14 @@ export default function PresenceProvider() {
     let interval: NodeJS.Timeout | undefined
 
     const startHeartbeat = async () => {
-      console.log('[presence-provider] starting heartbeat')
       const { data: sessionData } = await supabase.auth.getSession()
       const userId = sessionData?.session?.user?.id
       if (!userId) {
-        console.log('[presence-provider] no authenticated user; skipping')
         return
       }
 
-      console.log('[presence-provider] authenticated user', { userId })
-
       const beat = async () => {
         const nowIso = new Date().toISOString()
-        console.log('[presence-provider] heartbeat upsert', { userId, last_seen_at: nowIso })
         const { error } = await supabase
           .from('user_presence')
           .upsert(
@@ -33,9 +28,7 @@ export default function PresenceProvider() {
           )
 
         if (error) {
-          console.warn('[presence-provider] heartbeat failed', error)
-        } else {
-          console.log('[presence-provider] heartbeat success', { userId, last_seen_at: nowIso })
+          console.warn('Presence heartbeat failed', error)
         }
       }
 

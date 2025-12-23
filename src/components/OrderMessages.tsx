@@ -98,6 +98,17 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
 
           if (readError) {
             console.warn('Failed to update message read_at', readError)
+          } else {
+            const nowIso = new Date().toISOString()
+            setMessages(prev =>
+              prev.map(m =>
+                m.order_id === orderId &&
+                m.recipient_id === sessionUserId &&
+                !m.read_at
+                  ? { ...m, read_at: nowIso }
+                  : m
+              )
+            )
           }
         }
       } finally {
@@ -115,7 +126,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     if (!otherUserId) return
 
     const fetchPresence = async () => {
-      console.log('[presence] fetching initial presence for', otherUserId)
       const { data, error } = await supabase
         .from('user_presence')
         .select('last_seen_at')
@@ -123,13 +133,11 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
         .maybeSingle()
 
       if (error) {
-        console.warn('[presence] initial fetch error', error)
         setOtherOnline(false)
         return
       }
 
       if (!data?.last_seen_at) {
-        console.log('[presence] no last_seen_at in initial fetch', data)
         setOtherOnline(false)
         return
       }
@@ -137,12 +145,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
       const lastSeen = new Date(data.last_seen_at).getTime()
       const now = Date.now()
       const diffSeconds = (now - lastSeen) / 1000
-      console.log('[presence] initial last_seen_at diffSeconds', {
-        userId: otherUserId,
-        lastSeenAt: data.last_seen_at,
-        now,
-        diffSeconds,
-      })
       setOtherOnline(diffSeconds < 60)
     }
 
@@ -159,35 +161,18 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
           filter: `user_id=eq.${otherUserId}`
         },
         (payload) => {
-          console.log('[presence] realtime payload received', {
-            userId: otherUserId,
-            payload,
-          })
-
           const row = payload.new as any
           const lastSeenIso = row?.last_seen_at
           if (!lastSeenIso) {
-            console.log('[presence] realtime payload without last_seen_at', row)
             return
           }
           const lastSeen = new Date(lastSeenIso).getTime()
           const now = Date.now()
           const diffSeconds = (now - lastSeen) / 1000
-          console.log('[presence] realtime last_seen_at diffSeconds', {
-            userId: otherUserId,
-            lastSeenAt: lastSeenIso,
-            now,
-            diffSeconds,
-          })
           setOtherOnline(diffSeconds < 60)
         }
       )
-      .subscribe((status) => {
-        console.log('[presence] channel status', {
-          userId: otherUserId,
-          status,
-        })
-      })
+      .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
@@ -198,45 +183,57 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     if (!orderId) return
 
     const setup = async () => {
-      console.log('OrderMessages subscribing to realtime for order (broadcast):', orderId)
       const { data: sessionData } = await supabase.auth.getSession()
       const accessToken = sessionData?.session?.access_token
       if (!accessToken) {
-        console.warn('[msg-sub] no access token; skipping broadcast setup')
         return null
       }
 
       await supabase.realtime.setAuth(accessToken)
 
       const topic = `order:${orderId}:messages`
-      console.log('[msg-sub] subscribe to topic', topic)
 
       const messageChannel = supabase
         .channel(topic, { config: { private: true, broadcast: { self: true, ack: true } } })
         .on('broadcast', { event: 'INSERT' }, (payload: any) => {
-          console.log('[msg-sub] raw broadcast payload', payload)
           // broadcast_changes sends a change envelope in payload.payload
           const container = payload?.payload
           const row = container?.record as Partial<Message> | undefined
           if (!row) {
-            console.warn('[msg-sub] no record in broadcast payload', payload)
             return
           }
 
           if (!row.id || !row.sender_id || !row.recipient_id || !row.created_at) {
-            console.warn('[msg-sub] incomplete message row, skipping', row)
             return
           }
 
           const newMsg = row as Message
-          console.log('[msg-sub] broadcast INSERT', newMsg)
           setMessages(prev => {
             if (prev.some(m => m.id === newMsg.id)) {
-              console.log('[msg-sub] message already in list, skipping duplicate', newMsg.id)
               return prev
             }
             return [...prev, newMsg]
           })
+        })
+        .on('broadcast', { event: 'UPDATE' }, (payload: any) => {
+          const container = payload?.payload
+          const row = container?.record as Partial<Message> | undefined
+          if (!row || !row.id) {
+            return
+          }
+
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === row.id
+                ? {
+                    ...m,
+                    // Only override fields we care about for read receipts
+                    delivered_at: row.delivered_at ?? m.delivered_at,
+                    read_at: row.read_at ?? m.read_at,
+                  }
+                : m
+            )
+          )
         })
         .subscribe()
 
@@ -251,7 +248,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
 
     return () => {
       if (messageChannel) {
-        console.log('[msg-sub] removing broadcast subscription', { topic: messageChannel.topic })
         supabase.removeChannel(messageChannel)
       }
     }
@@ -266,36 +262,25 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
         const { data: sessionData } = await supabase.auth.getSession()
         const accessToken = sessionData?.session?.access_token
         if (!accessToken) {
-          console.warn('[typing-sub] no access token; skipping typing channel setup')
           return
         }
 
         await supabase.realtime.setAuth(accessToken)
 
         const topic = `order:${orderId}:typing`
-        console.log('[typing-sub] subscribe to topic', { topic, otherUserId })
 
         const channel = supabase
           .channel(topic, { config: { private: true, broadcast: { self: true } } })
           .on('broadcast', { event: 'typing_changed' }, ({ payload }) => {
-            console.log('[typing-sub] broadcast payload', payload)
             const { user_id, is_typing } = payload as any
             if (!user_id) return
-            if (user_id !== otherUserId) {
-              console.log('[typing-sub] ignoring typing from non-other user', {
-                expectedOtherUserId: otherUserId,
-                user_id,
-              })
-              return
-            }
-            console.log('[typing-sub] updating otherTyping from broadcast', { is_typing })
+            if (user_id !== otherUserId) return
             setOtherTyping(!!is_typing)
           })
           .subscribe()
 
         return channel
       } catch (err) {
-        console.error('[typing-sub] failed to setup typing channel', err)
         return undefined
       }
     }
@@ -466,15 +451,12 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     const value = e.target.value
     setNewMessage(value)
 
-    console.log('[typing] input change', { orderId, value })
-
     const { data: sessionData } = await supabase.auth.getSession()
     const sessionUserId = sessionData?.session?.user?.id
     if (!sessionUserId) return
 
     // Always mark as typing on keypress
     setIsTyping(true)
-    console.log('[typing] set is_typing=true for', { orderId, userId: sessionUserId })
     await supabase
       .from('message_typing')
       .upsert(
@@ -489,7 +471,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
 
     const typingChannel = await getTypingChannel()
     if (typingChannel) {
-      console.log('[typing-send] broadcasting is_typing=true')
       typingChannel.send({
         type: 'broadcast',
         event: 'typing_changed',
@@ -503,7 +484,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     }
     typingTimeoutRef.current = setTimeout(async () => {
       setIsTyping(false)
-      console.log('[typing] timeout -> set is_typing=false for', { orderId, userId: sessionUserId })
       await supabase
         .from('message_typing')
         .upsert(
@@ -518,7 +498,6 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
 
       const typingChannel2 = await getTypingChannel()
       if (typingChannel2) {
-        console.log('[typing-send] broadcasting is_typing=false')
         typingChannel2.send({
           type: 'broadcast',
           event: 'typing_changed',
