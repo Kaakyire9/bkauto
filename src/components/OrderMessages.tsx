@@ -110,50 +110,12 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     }
   }, [orderId])
 
-  // Fetch and subscribe to other user's presence via Realtime broadcast
+  // Fetch and subscribe to other user's presence directly from user_presence
   useEffect(() => {
     if (!otherUserId) return
 
-    const setup = async () => {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const accessToken = sessionData?.session?.access_token
-      if (!accessToken) {
-        console.warn('[presence-sub] no access token; skipping presence channel')
-        return null
-      }
-
-      await supabase.realtime.setAuth(accessToken)
-
-      const topic = `user:${otherUserId}:presence`
-      console.log('[presence-sub] subscribe to topic', topic)
-
-      const channel = supabase
-        .channel(topic, { config: { private: true, broadcast: { self: true } } })
-        // Listen to all presence broadcasts regardless of event name (typed v2 API)
-        .on('broadcast', { event: '*' }, (payload: any) => {
-          console.log('[presence-sub] raw payload', payload)
-          const container = payload?.payload
-          const row = container?.record ?? container?.new ?? null
-          const lastSeenIso = row?.last_seen_at
-          if (!lastSeenIso) return
-          const lastSeen = new Date(lastSeenIso).getTime()
-          const now = Date.now()
-          const diffSeconds = (now - lastSeen) / 1000
-          setOtherOnline(diffSeconds < 60)
-        })
-        .subscribe()
-
-      return channel
-    }
-
-    let presenceChannel: ReturnType<typeof supabase.channel> | null = null
-
-    setup().then(ch => {
-      presenceChannel = ch
-    })
-
-    // Initial presence fetch from table for immediate status
-    ;(async () => {
+    const fetchPresence = async () => {
+      console.log('[presence] fetching initial presence for', otherUserId)
       const { data, error } = await supabase
         .from('user_presence')
         .select('last_seen_at')
@@ -161,22 +123,74 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
         .maybeSingle()
 
       if (error) {
-        console.warn('[presence-sub] initial fetch error', error)
-      } else if (data?.last_seen_at) {
-        const lastSeen = new Date(data.last_seen_at).getTime()
-        const now = Date.now()
-        const diffSeconds = (now - lastSeen) / 1000
-        setOtherOnline(diffSeconds < 60)
-      } else {
+        console.warn('[presence] initial fetch error', error)
         setOtherOnline(false)
+        return
       }
-    })()
+
+      if (!data?.last_seen_at) {
+        console.log('[presence] no last_seen_at in initial fetch', data)
+        setOtherOnline(false)
+        return
+      }
+
+      const lastSeen = new Date(data.last_seen_at).getTime()
+      const now = Date.now()
+      const diffSeconds = (now - lastSeen) / 1000
+      console.log('[presence] initial last_seen_at diffSeconds', {
+        userId: otherUserId,
+        lastSeenAt: data.last_seen_at,
+        now,
+        diffSeconds,
+      })
+      setOtherOnline(diffSeconds < 60)
+    }
+
+    fetchPresence()
+
+    const channel = supabase
+      .channel(`presence-${otherUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_presence',
+          filter: `user_id=eq.${otherUserId}`
+        },
+        (payload) => {
+          console.log('[presence] realtime payload received', {
+            userId: otherUserId,
+            payload,
+          })
+
+          const row = payload.new as any
+          const lastSeenIso = row?.last_seen_at
+          if (!lastSeenIso) {
+            console.log('[presence] realtime payload without last_seen_at', row)
+            return
+          }
+          const lastSeen = new Date(lastSeenIso).getTime()
+          const now = Date.now()
+          const diffSeconds = (now - lastSeen) / 1000
+          console.log('[presence] realtime last_seen_at diffSeconds', {
+            userId: otherUserId,
+            lastSeenAt: lastSeenIso,
+            now,
+            diffSeconds,
+          })
+          setOtherOnline(diffSeconds < 60)
+        }
+      )
+      .subscribe((status) => {
+        console.log('[presence] channel status', {
+          userId: otherUserId,
+          status,
+        })
+      })
 
     return () => {
-      if (presenceChannel) {
-        console.log('[presence-sub] removing subscription', { topic: presenceChannel.topic })
-        supabase.removeChannel(presenceChannel)
-      }
+      supabase.removeChannel(channel)
     }
   }, [otherUserId])
 
