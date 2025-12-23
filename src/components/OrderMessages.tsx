@@ -1,5 +1,6 @@
 "use client"
 import React, { useEffect, useRef, useState } from 'react'
+import { format, isToday, isYesterday, differenceInCalendarDays } from 'date-fns'
 import { supabase } from '../lib/supabaseClient'
 
 interface OrderMessagesProps {
@@ -543,68 +544,96 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
         ) : messages.length === 0 ? (
           <p className="text-xs text-[#C6CDD1]/60">No messages yet. Start the conversation below.</p>
         ) : (
-          messages.map(msg => {
-            if (!msg || !msg.sender_id) {
-              console.warn('[msg-render] skipping invalid message row', msg)
-              return null
-            }
-
-            const isMine = msg.sender_id === currentUserId
-            const mineLabel = currentUserLabel || 'You'
-            const otherLabel = otherUserName || 'Advisor'
-            return (
-              <div
-                key={msg.id}
-                className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-              >
+          (() => {
+            const items: React.ReactNode[] = []
+            let lastDateLabel: string | null = null
+            messages.forEach((msg, idx) => {
+              if (!msg || !msg.sender_id) {
+                console.warn('[msg-render] skipping invalid message row', msg)
+                return
+              }
+              const msgDate = new Date(msg.created_at)
+              let dateLabel = ''
+              if (isToday(msgDate)) {
+                dateLabel = 'Today'
+              } else if (isYesterday(msgDate)) {
+                dateLabel = 'Yesterday'
+              } else {
+                const daysAgo = differenceInCalendarDays(new Date(), msgDate)
+                if (daysAgo < 7) {
+                  // Show day of week for last 7 days (excluding today/yesterday)
+                  dateLabel = format(msgDate, 'EEEE') // Monday, Tuesday, etc.
+                } else {
+                  // Show as Tue 16 Dec, Mon 15 Dec, etc.
+                  dateLabel = format(msgDate, 'EEE d MMM')
+                }
+              }
+              if (dateLabel !== lastDateLabel) {
+                items.push(
+                  <div key={`date-sep-${dateLabel}-${idx}`} className="flex justify-center my-2">
+                    <span className="px-3 py-1 rounded-full bg-[#041123]/60 text-[#D4AF37] text-xs font-semibold shadow">{dateLabel}</span>
+                  </div>
+                )
+                lastDateLabel = dateLabel
+              }
+              const isMine = msg.sender_id === currentUserId
+              const mineLabel = currentUserLabel || 'You'
+              const otherLabel = otherUserName || 'Advisor'
+              items.push(
                 <div
-                  className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs sm:text-sm ${
-                    isMine
-                      ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123]'
-                      : 'bg-[#041123]/80 text-[#C6CDD1] border border-[#D4AF37]/10'
-                  }`}
+                  key={msg.id}
+                  className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                 >
-                  {msg.image_url && (
-                    <a
-                      href={msg.image_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block mb-1"
-                    >
-                      <img
-                        src={msg.image_url}
-                        alt="Shared vehicle"
-                        className="max-h-40 rounded-xl border border-[#D4AF37]/20 object-cover"
-                      />
-                    </a>
-                  )}
-                  {msg.body && (
-                    <p className="whitespace-pre-wrap break-words mb-1">{msg.body}</p>
-                  )}
-                  <div className="flex justify-between items-center gap-2 mt-1">
-                    <span className={`text-[10px] font-semibold ${isMine ? 'text-[#041123]/80' : 'text-[#D4AF37]/80'}`}>
-                      {isMine ? mineLabel : otherLabel}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <span className={`text-[10px] ${isMine ? 'text-[#041123]/70' : 'text-[#C6CDD1]/50'}`}>
-                        {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs sm:text-sm ${
+                      isMine
+                        ? 'bg-gradient-to-r from-[#D4AF37] to-[#FFE17B] text-[#041123]'
+                        : 'bg-[#041123]/80 text-[#C6CDD1] border border-[#D4AF37]/10'
+                    }`}
+                  >
+                    {msg.image_url && (
+                      <a
+                        href={msg.image_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block mb-1"
+                      >
+                        <img
+                          src={msg.image_url}
+                          alt="Shared vehicle"
+                          className="max-h-40 rounded-xl border border-[#D4AF37]/20 object-cover"
+                        />
+                      </a>
+                    )}
+                    {msg.body && (
+                      <p className="whitespace-pre-wrap break-words mb-1">{msg.body}</p>
+                    )}
+                    <div className="flex justify-between items-center gap-2 mt-1">
+                      <span className={`text-[10px] font-semibold ${isMine ? 'text-[#041123]/80' : 'text-[#D4AF37]/80'}`}>
+                        {isMine ? mineLabel : otherLabel}
                       </span>
-                      {isMine && (
-                        <span className="text-[11px]">
-                          {msg.read_at
-                            ? <span className="text-[#1D9BF0]">✓✓</span>
-                            : msg.delivered_at
-                            ? <span className="text-[#041123]/80">✓✓</span>
-                            : <span className="text-[#041123]/80">✓</span>
-                          }
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[10px] ${isMine ? 'text-[#041123]/70' : 'text-[#C6CDD1]/50'}`}>
+                          {msgDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                      )}
+                        {isMine && (
+                          <span className="text-[11px]">
+                            {msg.read_at
+                              ? <span className="text-[#1D9BF0]">✓✓</span>
+                              : msg.delivered_at
+                              ? <span className="text-[#041123]/80">✓✓</span>
+                              : <span className="text-[#041123]/80">✓</span>
+                            }
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )
-          })
+              )
+            })
+            return items
+          })()
         )}
         <div ref={endRef} />
       </div>
