@@ -10,6 +10,38 @@ interface MessageListenerProviderProps {
 
 export default function MessageListenerProvider({ currentUserId, children }: MessageListenerProviderProps) {
   const lastToastIdRef = useRef<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
+
+  // Unlock audio on first user interaction
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (audioUnlockedRef.current) return;
+    const unlock = () => {
+      if (!audioRef.current) {
+        audioRef.current = new window.Audio('/sounds/notification.mp3');
+      }
+      audioRef.current.play()
+        .then(() => {
+          audioRef.current?.pause();
+          audioUnlockedRef.current = true;
+          window.removeEventListener('click', unlock);
+          window.removeEventListener('keydown', unlock);
+        })
+        .catch(() => {
+          // Even if play is blocked, mark as unlocked so future plays are attempted
+          audioUnlockedRef.current = true;
+          window.removeEventListener('click', unlock);
+          window.removeEventListener('keydown', unlock);
+        });
+    };
+    window.addEventListener('click', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentUserId) return
@@ -27,6 +59,19 @@ export default function MessageListenerProvider({ currentUserId, children }: Mes
           if (!msg || !msg.body) return
           if (lastToastIdRef.current === msg.id) return
           lastToastIdRef.current = msg.id
+          // Play notification sound (if unlocked)
+          if (!audioRef.current) {
+            audioRef.current = new window.Audio('/sounds/notification.mp3');
+          }
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch((e) => {
+            toast.error('Notification sound failed: ' + (e?.message || e));
+            console.warn('Notification sound failed:', e);
+          });
+          // Trigger vibration (mobile)
+          if (typeof window !== 'undefined' && window.navigator.vibrate) {
+            window.navigator.vibrate([120, 40, 120]);
+          }
           toast.custom((t) => (
             <div className="bg-[#041123] text-[#D4AF37] px-4 py-3 rounded-xl shadow-lg flex flex-col min-w-[180px] max-w-[320px]">
               <span className="font-bold text-xs mb-1">New message</span>
