@@ -1,5 +1,6 @@
 "use client"
 import React, { useEffect, useRef, useState } from 'react'
+// import toast, { Toaster } from 'react-hot-toast'
 import { format, isToday, isYesterday, differenceInCalendarDays } from 'date-fns'
 import { supabase } from '../lib/supabaseClient'
 
@@ -508,8 +509,11 @@ export default function OrderMessages({ orderId, currentUserId, otherUserId, oth
     }, 2000)
   }
 
+
+
   return (
     <div className="bg-[#010812]/50 border border-[#D4AF37]/20 rounded-2xl p-4 sm:p-5 flex flex-col h-80">
+
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-sm font-bold text-[#D4AF37]">Messages</h3>
