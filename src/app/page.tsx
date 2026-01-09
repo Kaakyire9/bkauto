@@ -1,6 +1,6 @@
 import { createServerActionClient } from './serverActionsHelper'
 import { cookies } from 'next/headers'
-import Hero from '../components/Hero'
+import PremiumHero from '../components/PremiumHero'
 import HowItWorksSimple from '../components/HowItWorksSimple'
 import WhyChoose from '../components/WhyChoose'
 import Testimonials from '../components/Testimonials'
@@ -31,7 +31,7 @@ export default async function Page() {
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-grow">
-        <Hero />
+        <PremiumHero />
 
         <HowItWorksSimple />
 

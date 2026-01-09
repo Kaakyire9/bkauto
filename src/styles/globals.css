@@ -41,6 +41,10 @@ html, body, #__next {
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
 }
@@ -86,6 +90,10 @@ html, body {
 
 /* Respect user's reduced motion preference: disable shimmer */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   .shimmer-text,
   .shimmer-subtle {
     animation: none !important;

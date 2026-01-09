@@ -35,6 +35,7 @@ export default function HowItWorks() {
 
   return (
     <section
+      id="how-it-works"
       aria-labelledby="how-it-works-heading"
       className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] py-20 md:py-24 bg-[#6B667A] border-y border-white/10"
     >
