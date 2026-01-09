@@ -6,8 +6,8 @@ import UserProvider from '../components/UserProvider'
 import MessageListenerProviderWrapper from '../components/MessageListenerProviderWrapper'
 
 export const metadata = {
-  title: 'bkauto-next',
-  description: 'Next.js 14 + TypeScript + Tailwind + Supabase starter'
+  title: 'BK Auto Trading',
+  description: 'BK Auto Trading sources and imports premium vehicles from the US and Europe to The Gambia, managing inspection, logistics, and delivery with complete transparency.'
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
