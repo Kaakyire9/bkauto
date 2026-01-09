@@ -1,18 +1,14 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import MotionPrimaryButton from "./ui/MotionPrimaryButton";
 import MotionGhostButton from "./ui/MotionGhostButton";
 
-const fadeUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-};
-
 export default function PremiumHero() {
-  const handleHowItWorksClick = () => {
+  const handleHowItWorksClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
     const section = document.getElementById("how-it-works");
     if (section) {
       section.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -23,88 +19,50 @@ export default function PremiumHero() {
   };
 
   return (
-    <section className="relative left-1/2 -translate-x-1/2 w-screen min-h-screen overflow-hidden">
-      <div className="absolute inset-0">
-        <Image
-          src="/images/hero-image.png"
-          alt="Premium automotive sourcing experience"
-          fill
-          priority
-          className="object-cover object-center"
-        />
-      </div>
-      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/60" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(212,175,55,0.16),transparent_55%)]" />
-
-      <div className="relative z-10 min-h-screen flex items-center">
-        <div className="w-full max-w-6xl mx-auto px-6 md:px-16 lg:px-24 xl:px-32 py-20">
-          <div className="max-w-3xl">
-            <div className="relative rounded-3xl border border-white/15 bg-white/5 backdrop-blur-2xl px-6 py-10 sm:px-10 lg:px-12 lg:ml-8 ring-1 ring-[#D4AF37]/20 shadow-[0_24px_80px_rgba(0,0,0,0.45),0_0_60px_rgba(212,175,55,0.18)]">
-              <div className="pointer-events-none absolute inset-0 rounded-3xl bg-[radial-gradient(ellipse_at_top_left,rgba(212,175,55,0.2),transparent_55%)]" />
-              <div className="absolute -top-px left-10 right-10 h-px bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent" />
-              <div className="absolute -bottom-px left-10 right-10 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-
-              <motion.p
-                {...fadeUp}
-                transition={{ duration: 0.6 }}
-                className="text-xs tracking-[0.4em] uppercase text-white/70"
-              >
-                Concierge Auto Sourcing
-              </motion.p>
-
-              <motion.h1
-                {...fadeUp}
-                transition={{ duration: 0.7, delay: 0.1 }}
-                className="mt-6 text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-light tracking-[0.02em] leading-[1.05]"
-              >
-                <span className="block text-white">Find Your</span>
-                <span className="block bg-gradient-to-r from-[#D4AF37] via-[#C6CDD1] to-[#D4AF37] bg-clip-text text-transparent font-semibold">
+    <section className="w-full bg-gradient-to-r from-[#0b1118] via-[#111827] to-[#0b1118]">
+      <div className="max-w-screen-xl mx-auto px-6 md:px-16 lg:px-24 xl:px-32 pt-24 pb-16 md:pt-28 lg:pt-28 lg:pb-24">
+        <div className="grid items-center gap-12 lg:grid-cols-2">
+          <div className="space-y-8 text-white">
+            <div>
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold leading-[1.1] mb-6">
+                <span className="block bg-gradient-to-r from-[#D4AF37] via-[#C6CDD1] to-[#D4AF37] bg-clip-text text-transparent">
+                  Find Your
+                </span>
+                <span className="block bg-gradient-to-r from-[#C6CDD1] via-[#D4AF37] to-[#1257D8] bg-clip-text text-transparent mt-2">
                   Dream Car
                 </span>
-              </motion.h1>
+              </h1>
 
-              <motion.div
-                {...fadeUp}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="mt-5 h-px w-16 bg-gradient-to-r from-[#D4AF37] via-[#C6CDD1] to-transparent"
-              />
+              <div className="h-1 w-32 bg-gradient-to-r from-[#D4AF37] via-[#C21E3A] to-transparent rounded-full" />
+            </div>
 
-              <motion.p
-                {...fadeUp}
-                transition={{ duration: 0.7, delay: 0.25 }}
-                className="mt-6 text-lg sm:text-xl text-white/80 leading-relaxed max-w-2xl"
-              >
-                We source, you decide. Receive vetted offers from trusted sellers across
-                our private network with inspection, shipping, and transparent fees
-                included.
-              </motion.p>
+            <p className="text-xl sm:text-2xl text-[#C6CDD1]/90 max-w-2xl leading-relaxed font-light">
+              We source, you decide. Receive vetted offers from trusted sellers
+              across our private network with inspection, shipping, and
+              transparent fees included.
+            </p>
 
-              <motion.div
-                {...fadeUp}
-                transition={{ duration: 0.7, delay: 0.35 }}
-                className="mt-8 flex flex-wrap gap-4"
-              >
-                <Link href="/order">
-                  <MotionPrimaryButton
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="px-8 py-4 text-base font-semibold"
-                  >
-                    <span className="flex items-center gap-2">
-                      Order Now
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </span>
-                  </MotionPrimaryButton>
-                </Link>
-
-                <MotionGhostButton
-                  type="button"
-                  onClick={handleHowItWorksClick}
+            <div className="flex flex-wrap gap-4">
+              <Link href="/order">
+                <MotionPrimaryButton
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
-                  className="px-8 py-4 text-base font-medium text-white rounded-xl bg-white/5 border border-white/20 backdrop-blur-xl transition-all"
+                  className="px-8 py-4 text-base font-semibold"
+                >
+                  <span className="flex items-center gap-2">
+                    Order Now
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </span>
+                </MotionPrimaryButton>
+              </Link>
+
+              <Link href="#how-it-works" onClick={handleHowItWorksClick}>
+                <MotionGhostButton
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-8 py-4 text-base font-medium text-white rounded-xl bg-bk-gold/5 border border-bk-gold/30 backdrop-blur-xl transition-all"
                 >
                   <span className="flex items-center gap-2">
                     How It Works
@@ -114,27 +72,40 @@ export default function PremiumHero() {
                     </svg>
                   </span>
                 </MotionGhostButton>
-              </motion.div>
-
-              <motion.div
-                {...fadeUp}
-                transition={{ duration: 0.7, delay: 0.45 }}
-                className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm text-white/70"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
-                  Private seller network
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
-                  White glove inspections
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
-                  Insured logistics
-                </span>
-              </motion.div>
+              </Link>
             </div>
+
+            <div className="flex flex-wrap items-center gap-6 pt-4">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#0FA662]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm text-[#C6CDD1]/70">No inventory pressure</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#0FA662]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm text-[#C6CDD1]/70">Secure payments</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#0FA662]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm text-[#C6CDD1]/70">Insured shipping</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end lg:justify-start lg:ml-6 lg:-mr-12 xl:-mr-24">
+            <Image
+              src="/images/hero-image.png"
+              alt="Premium automotive sourcing experience"
+              width={1000}
+              height={700}
+              priority
+              className="w-full max-w-[1024px] h-auto"
+            />
           </div>
         </div>
       </div>
